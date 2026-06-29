@@ -7,8 +7,8 @@ export default function Navbar({ repoUrl, isConnected }) {
       <div className="navbar-brand">
         <div className="navbar-logo">G</div>
         <div>
-          <div className="navbar-title">GraphForgeAI</div>
-          <div className="navbar-subtitle">Architecture Evolution Platform</div>
+          <div className="navbar-title">What's Next?</div>
+          <div className="navbar-subtitle">Propose. Preview. Implement. See the Change Before You Build It.</div>
         </div>
       </div>
 

@@ -91,7 +91,7 @@ export default function RepositoryPanel({ onIngested, onStatusChange, feature, s
                 <div className="repo-card-header" style={{ marginBottom: "16px" }}>
                     <div className="repo-card-icon">🔗</div>
                     <div>
-                        <div className="repo-card-title">Connect Repository</div>
+                        <div className="repo-card-title">Connect GitHub Repository</div>
                     </div>
                 </div>
 
@@ -103,7 +103,7 @@ export default function RepositoryPanel({ onIngested, onStatusChange, feature, s
                     marginBottom: "24px",
                     fontFamily: "var(--font-sans)"
                 }}>
-                    GraphForgeAI is an AI-powered software architecture evolution platform that analyzes GitHub repositories, extracts their architecture, and visualizes relationships between folders, files, services, classes and functions. Users can understand unfamiliar codebases, propose new features in natural language, preview architectural changes, compare before/after graphs, generate implementation plans, and receive production-ready code suggestions—all from a single interactive workspace.
+                    An AI-powered platform that turns feature ideas into architectural evolution—letting developers propose changes in natural language, instantly preview how their system adapts, visualize added, modified, and removed components, and generate clear implementation plans with suggested files, folders, services, and functions.
                 </p>
 
                 {/* Ingestion Link Group */}
@@ -162,7 +162,7 @@ export default function RepositoryPanel({ onIngested, onStatusChange, feature, s
                     <textarea
                         value={feature}
                         onChange={(e) => setFeature(e.target.value)}
-                        placeholder="Describe the feature you want to add eventually..."
+                        placeholder="(Optional) Describe the feature you want to add eventually or leave this field blank and add it after you have viewed the project's architecture..."
                         className="feature-textarea"
                         style={{
                             width: "100%",
