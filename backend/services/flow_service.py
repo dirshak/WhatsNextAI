@@ -60,6 +60,18 @@ def steps_to_mermaid_flowchart(steps: list[dict]) -> str:
 
 
 def build_architecture_mermaid(symbols_rows, dependency_rows, max_nodes: int = 60) -> str:
+    import json as _json
+
+    def _parse_json(val):
+        if not val:
+            return []
+        if isinstance(val, str):
+            try:
+                return _json.loads(val)
+            except Exception:
+                return []
+        return val
+
     # Count dependency degree per file to pick the most connected ones
     degree: dict[str, int] = {}
     for row in dependency_rows:
@@ -96,8 +108,8 @@ def build_architecture_mermaid(symbols_rows, dependency_rows, max_nodes: int = 6
             counter += 1
         id_map[fname] = sid
 
-        fns = [f["name"] for f in (row.functions or [])[:3]]
-        cls = [c["name"] for c in (row.classes or [])[:2]]
+        fns = [f["name"] for f in _parse_json(row.functions)[:3] if isinstance(f, dict) and "name" in f]
+        cls = [c["name"] for c in _parse_json(row.classes)[:2] if isinstance(c, dict) and "name" in c]
         items = fns + cls
         dname = display_name(fname)
         label = "\\n".join(items) if items else dname
@@ -364,16 +376,28 @@ async def get_architecture(repo_id: str, db: Session) -> dict:
     mermaid = build_architecture_mermaid(symbols_rows, dependency_rows, max_nodes=60)
     mermaid = re.sub(r"[^\x00-\x7F]+", "", mermaid)
 
+    import json as _json
+
+    def _parse_json(val):
+        if not val:
+            return []
+        if isinstance(val, str):
+            try:
+                return _json.loads(val)
+            except Exception:
+                return []
+        return val
+
     # Cap LLM input to top 60 files
     summary_rows = sorted(
         symbols_rows,
-        key=lambda r: len(r.functions or []) + len(r.classes or []),
+        key=lambda r: len(_parse_json(r.functions)) + len(_parse_json(r.classes)),
         reverse=True,
     )[:60]
     file_summaries = "\n".join([
         f"{row.file_path.split('/')[-1]}: "
-        f"functions={[f['name'] for f in (row.functions or [])[:6]]}, "
-        f"classes={[c['name'] for c in (row.classes or [])[:3]]}"
+        f"functions={[f['name'] for f in _parse_json(row.functions)[:6] if isinstance(f, dict) and 'name' in f]}, "
+        f"classes={[c['name'] for c in _parse_json(row.classes)[:3] if isinstance(c, dict) and 'name' in c]}"
         for row in summary_rows
     ])
 

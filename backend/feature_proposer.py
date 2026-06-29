@@ -151,7 +151,7 @@ class FeatureProposer:
                     {"role": "user", "content": user_message},
                 ],
                 temperature=0.2,      # low temp: we want deterministic structure
-                max_tokens=2048,
+                max_tokens=1200,
                 response_format={"type": "json_object"},
             )
 
@@ -181,8 +181,8 @@ class FeatureProposer:
     def _trim_graph_for_context(
         self,
         graph: dict[str, Any],
-        max_nodes: int = 80,
-        max_edges: int = 120,
+        max_nodes: int = 50,
+        max_edges: int = 80,
     ) -> dict[str, Any]:
         """
         Large repos produce graphs with thousands of nodes. Trim to the most

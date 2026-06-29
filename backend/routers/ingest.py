@@ -129,21 +129,39 @@ def get_knowledge_graph(repo_id: str):
                 seen_nodes.add(node_id)
                 nodes.append({"id": node_id, "label": label, "type": node_type, **kwargs})
 
+        import json as _json
+
+        def _parse_json(val):
+            if not val:
+                return []
+            if isinstance(val, str):
+                try:
+                    return _json.loads(val)
+                except Exception:
+                    return []
+            return val
+
         for row in symbol_rows:
             file_name = row.file_path.split("/")[-1]
             file_id = f"file::{file_name}"
             add_node(file_id, file_name, "file", file=file_name)
 
-            for fn in (row.functions or []):
-                fn_id = f"fn::{file_name}::{fn['name']}"
-                add_node(fn_id, fn["name"], "function",
+            for fn in _parse_json(row.functions):
+                if not isinstance(fn, dict):
+                    continue
+                fn_name = fn.get("name", "")
+                fn_id = f"fn::{file_name}::{fn_name}"
+                add_node(fn_id, fn_name, "function",
                          file=file_name, line=fn.get("line"),
                          docstring=fn.get("docstring"), args=fn.get("args", []))
                 edges.append({"source": file_id, "target": fn_id, "type": "contains"})
 
-            for cls in (row.classes or []):
-                cls_id = f"cls::{file_name}::{cls['name']}"
-                add_node(cls_id, cls["name"], "class",
+            for cls in _parse_json(row.classes):
+                if not isinstance(cls, dict):
+                    continue
+                cls_name = cls.get("name", "")
+                cls_id = f"cls::{file_name}::{cls_name}"
+                add_node(cls_id, cls_name, "class",
                          file=file_name, line=cls.get("line"),
                          docstring=cls.get("docstring"), methods=cls.get("methods", []))
                 edges.append({"source": file_id, "target": cls_id, "type": "contains"})

@@ -65,26 +65,48 @@ def get_symbol_context(repo_id: str, file_paths: list[str], db: Session) -> str:
     if not rows:
         return ""
 
+    import json as _json
+
+    def _parse_json(val):
+        if not val:
+            return []
+        if isinstance(val, str):
+            try:
+                return _json.loads(val)
+            except Exception:
+                return []
+        return val
+
     parts = ["## File Structure (AST Analysis)\n"]
     for row in rows:
         short_path = row.file_path.split("/")[-1]
         parts.append(f"### {short_path}")
         if row.top_level_docstring:
             parts.append(f"_{row.top_level_docstring}_\n")
-        if row.imports:
-            parts.append(f"**Imports:** {', '.join(row.imports[:10])}")
-        if row.classes:
-            for cls in row.classes:
-                method_names = [m["name"] for m in cls.get("methods", [])]
-                parts.append(f"**Class `{cls['name']}`** (line {cls['line']})")
+        
+        imports = _parse_json(row.imports)
+        if imports:
+            parts.append(f"**Imports:** {', '.join(imports[:10])}")
+        
+        classes = _parse_json(row.classes)
+        if classes:
+            for cls in classes:
+                if not isinstance(cls, dict):
+                    continue
+                method_names = [m["name"] for m in cls.get("methods", []) if isinstance(m, dict) and "name" in m]
+                parts.append(f"**Class `{cls.get('name')}`** (line {cls.get('line')})")
                 if cls.get("docstring"):
                     parts.append(f"  - {cls['docstring']}")
                 if method_names:
                     parts.append(f"  - Methods: {', '.join(method_names)}")
-        if row.functions:
-            for fn in row.functions:
+        
+        functions = _parse_json(row.functions)
+        if functions:
+            for fn in functions:
+                if not isinstance(fn, dict):
+                    continue
                 args = ", ".join(fn.get("args", []))
-                parts.append(f"**Function `{fn['name']}({args})`** (line {fn['line']})")
+                parts.append(f"**Function `{fn.get('name')}({args})`** (line {fn.get('line')})")
                 if fn.get("docstring"):
                     parts.append(f"  - {fn['docstring']}")
         parts.append("")
