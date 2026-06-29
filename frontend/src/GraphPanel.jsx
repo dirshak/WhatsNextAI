@@ -43,7 +43,7 @@ function filterGraphData(data, localOnly, minDegree) {
   return { nodes: filteredNodes, edges: filteredEdges };
 }
 
-export default function GraphPanel({ repoId, repoUrl, onClose, theme }) {
+export default function GraphPanel({ repoId, repoUrl, onClose, theme, proposalResult }) {
   const svgRef        = useRef(null);
   const containerRef  = useRef(null);
   const zoomRef       = useRef(null);
@@ -57,6 +57,9 @@ export default function GraphPanel({ repoId, repoUrl, onClose, theme }) {
   const [copied,    setCopied]    = useState(false);
   const [localOnly, setLocalOnly] = useState(false);
   const [minDegree, setMinDegree] = useState(1);
+  // Proposal diff overlay
+  const addedNodeIds   = proposalResult ? new Set((proposalResult.react_flow?.nodes || []).filter(n => n.data?.status === "added").map(n => n.id)) : new Set();
+  const modifiedNodeIds = proposalResult ? new Set((proposalResult.react_flow?.nodes || []).filter(n => n.data?.status === "modified").map(n => n.id)) : new Set();
 
   function renderGraph(data) {
     if (!data || !svgRef.current || !containerRef.current) return;
@@ -154,9 +157,18 @@ export default function GraphPanel({ repoId, repoUrl, onClose, theme }) {
 
     node.append("circle")
       .attr("r", d => nodeRadius(d.id))
-      .attr("fill", d => nodeColors[getNodeType(d.id)].fill)
-      .attr("stroke", d => nodeColors[getNodeType(d.id)].stroke)
+      .attr("fill", d => {
+        if (addedNodeIds.has(d.id)) return theme === "light" ? "#e8f5e8" : "#0d2f0d";
+        if (modifiedNodeIds.has(d.id)) return theme === "light" ? "#fef3c7" : "#2f240d";
+        return nodeColors[getNodeType(d.id)].fill;
+      })
+      .attr("stroke", d => {
+        if (addedNodeIds.has(d.id)) return "#22c55e";
+        if (modifiedNodeIds.has(d.id)) return "#f59e0b";
+        return nodeColors[getNodeType(d.id)].stroke;
+      })
       .attr("stroke-width", 1.5)
+      .attr("class", d => addedNodeIds.has(d.id) ? "node-added" : "")
       .on("mouseover", function(e, d) {
         d3.select(this).attr("stroke-width", 2.5).attr("filter", "url(#glow)");
         link

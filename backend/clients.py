@@ -1,9 +1,11 @@
 import os
-from groq import AsyncGroq
+from groq import Groq, AsyncGroq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-JINA_API_URL = "https://api.jina.ai/v1/embeddings"
+# Shared sync Groq client (for blocking/script contexts)
+X = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# Shared async Groq client (for FastAPI async endpoints)
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))

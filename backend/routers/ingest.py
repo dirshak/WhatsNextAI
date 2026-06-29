@@ -230,12 +230,20 @@ def debug_symbols():
     db = SessionLocal()
     try:
         rows = db.execute(text("""
-            SELECT repo_id, file_path, json_array_length(functions::json) as fn_count
+            SELECT repo_id, file_path, functions
             FROM file_symbols
         """)).fetchall()
     finally:
         db.close()
-    return [
-        {"repo_id": str(r.repo_id), "file": r.file_path.split("/")[-1], "functions": r.fn_count}
-        for r in rows
-    ]
+    result = []
+    for r in rows:
+        fns = r.functions
+        if isinstance(fns, str):
+            import json as _json
+            try:
+                fns = _json.loads(fns)
+            except Exception:
+                fns = []
+        fn_count = len(fns) if fns else 0
+        result.append({"repo_id": str(r.repo_id), "file": r.file_path.split("/")[-1], "functions": fn_count})
+    return result

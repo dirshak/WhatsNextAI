@@ -305,3 +305,25 @@ button {
   .graph-hint-desktop { display: inline; }
   .graph-hint-touch   { display: none; }
 }
+
+/* ── GraphForgeAI Feature Panel animations ─────────────────── */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* New node pulse — used by GraphPanel for added nodes */
+@keyframes nodeGlow {
+  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+  50%  { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+
+.node-added {
+  animation: nodeGlow 1.2s ease-out 3;
+}

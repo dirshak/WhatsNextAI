@@ -23,7 +23,7 @@ function getMermaidConfig(theme) {
   };
 }
 
-export default function DiagramPanel({ repoId, repoUrl, onClose, mode, theme }) {
+export default function DiagramPanel({ repoId, repoUrl, onClose, mode, theme, proposalResult }) {
   const wrapperRef      = useRef(null);
   const svgContainerRef = useRef(null);
   const zoomRef         = useRef(null);
@@ -52,6 +52,13 @@ export default function DiagramPanel({ repoId, repoUrl, onClose, mode, theme }) 
     setMermaidCode("");
     setExplanation("");
     try {
+      if (proposalResult && mode === "architecture") {
+        setMermaidCode(proposalResult.architecture_mermaid);
+        setExplanation(proposalResult.rationale);
+        setActiveTab("diagram");
+        setLoading(false);
+        return;
+      }
       let data;
       if (mode === "architecture") {
         const res = await fetch(`${API}/architecture/${repoId}`);
@@ -76,8 +83,8 @@ export default function DiagramPanel({ repoId, repoUrl, onClose, mode, theme }) 
   }
 
   useEffect(() => {
-    if (mode === "architecture") fetchDiagram(null);
-  }, [mode, repoId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (mode === "architecture" || proposalResult) fetchDiagram(null);
+  }, [mode, repoId, proposalResult]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Render mermaid + set up D3 zoom (also re-runs on renderKey change = theme toggle)
   useEffect(() => {

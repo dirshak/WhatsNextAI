@@ -1,8 +1,6 @@
 fastapi
 uvicorn
 sqlalchemy
-psycopg2-binary
-pgvector
 httpx
 gitpython
 python-dotenv

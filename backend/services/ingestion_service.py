@@ -9,7 +9,6 @@ import uuid
 
 import anyio
 import git
-import httpx
 import networkx as nx
 from models.chunk import CodeChunk, FileSymbol, FileDependency, CallEdge
 from sqlalchemy.orm import Session
@@ -17,12 +16,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-JINA_API_URL = "https://api.jina.ai/v1/embeddings"
-
 MAX_FILE_SIZE   = int(os.getenv("MAX_FILE_BYTES", str(500_000)))   # 500 KB
 MAX_FILES       = int(os.getenv("MAX_FILES", "1500"))
-EMBED_BATCH     = 100   # embed + store every N chunks to cap memory use
-USE_EMBEDDINGS  = os.getenv("USE_EMBEDDINGS", "true").lower() == "true"
+EMBED_BATCH     = 100   # flush every N chunks to cap memory use
 
 SUPPORTED_EXTENSIONS = {
     ".py": "python",
@@ -269,101 +265,17 @@ def extract_symbols(file_path: str, source_code: str) -> dict:
     }
 
 
-# ── 5. Embed (parallel async via httpx, with retry) ──────────
-
-MAX_EMBED_CHARS   = int(os.getenv("MAX_EMBED_CHARS", "1500"))
-EMBED_BATCH_SIZE  = int(os.getenv("EMBED_BATCH_SIZE", "32"))
-EMBED_CONCURRENCY = int(os.getenv("EMBED_CONCURRENCY", "2"))
-# Max chunks to embed — chunks beyond this are stored without vectors (keyword-searchable).
-# Prevents multi-hour embedding runs on huge repos on Jina free tier.
-MAX_EMBED_CHUNKS  = int(os.getenv("MAX_EMBED_CHUNKS", "500"))
-
-
-async def _embed_single_batch(
-    client: httpx.AsyncClient,
-    batch: list[str],
-    headers: dict,
-) -> list[list[float]]:
-    payload = {
-        "model": "jina-embeddings-v3",
-        "task": "retrieval.passage",
-        "input": batch,
-    }
-    for attempt in range(5):
-        try:
-            response = await client.post(JINA_API_URL, headers=headers, json=payload, timeout=60)
-            if response.status_code == 200:
-                return [item["embedding"] for item in response.json()["data"]]
-            if response.status_code == 429:
-                # Respect Retry-After if present, otherwise short exponential backoff
-                retry_after = response.headers.get("Retry-After")
-                wait = float(retry_after) if retry_after else min(4 * (2 ** attempt), 30)
-                await anyio.sleep(wait)
-                continue
-            if response.status_code in (500, 502, 503, 504) and attempt < 4:
-                await anyio.sleep(2 ** attempt)
-                continue
-            raise Exception(f"Jina API error {response.status_code}: {response.text[:200]}")
-        except httpx.TimeoutException:
-            if attempt < 4:
-                await anyio.sleep(2 ** attempt)
-            else:
-                raise
-    raise Exception("Jina API: max retries exceeded")
-
-
-async def get_embeddings(texts: list[str]) -> list[list[float]]:
-    jina_key = os.getenv("JINA_API_KEY", "").strip()
-    if not jina_key:
-        raise Exception("JINA_API_KEY is not configured")
-
-    headers = {
-        "Authorization": f"Bearer {jina_key}",
-        "Content-Type": "application/json",
-    }
-
-    batches = [
-        [t[:MAX_EMBED_CHARS] for t in texts[i:i + EMBED_BATCH_SIZE]]
-        for i in range(0, len(texts), EMBED_BATCH_SIZE)
-    ]
-
-    results: list[list[list[float]] | None] = [None] * len(batches)
-    sem = asyncio.Semaphore(EMBED_CONCURRENCY)
-
-    async def embed_with_sem(idx: int, batch: list[str], cl: httpx.AsyncClient) -> None:
-        async with sem:
-            results[idx] = await _embed_single_batch(cl, batch, headers)
-
-    async with httpx.AsyncClient() as client:
-        async with anyio.create_task_group() as tg:
-            for i, batch in enumerate(batches):
-                tg.start_soon(embed_with_sem, i, batch, client)
-
-    all_embeddings: list[list[float]] = []
-    for r in results:
-        if r:
-            all_embeddings.extend(r)
-    return all_embeddings
-
-
-async def embed_chunks(chunks: list[dict]) -> list[dict]:
-    texts = [chunk["content"] for chunk in chunks]
-    embeddings = await get_embeddings(texts)
-    for i, chunk in enumerate(chunks):
-        chunk["embedding"] = embeddings[i] if i < len(embeddings) else None
-    return chunks
-
-
-# ── 6a. Store chunks ──────────────────────────────────────────
+# ── 5. Store chunks (no embeddings — keyword search only) ─────
 
 def store_vectors(chunks: list[dict], repo_id: str, db: Session):
+    """Store code chunks. Embedding column is always None (keyword search used instead)."""
     try:
         for chunk in chunks:
             db.add(CodeChunk(
                 repo_id=repo_id,
                 file_path=chunk["file_path"],
                 content=chunk["content"],
-                embedding=chunk.get("embedding"),
+                embedding=None,   # embeddings disabled; Groq has no embedding API
                 start_line=chunk["start_line"],
                 end_line=chunk["end_line"],
             ))
@@ -373,7 +285,7 @@ def store_vectors(chunks: list[dict], repo_id: str, db: Session):
         raise
 
 
-# ── 6b. Store AST symbols ─────────────────────────────────────
+# ── 6. Store AST symbols ──────────────────────────────────────
 
 def store_symbols(file_symbols: list[dict], repo_id: str, db: Session):
     try:
@@ -392,7 +304,7 @@ def store_symbols(file_symbols: list[dict], repo_id: str, db: Session):
         raise
 
 
-# ── 6c. Resolve @/ path alias to an actual file ──────────────
+# ── 7. Resolve @/ path alias ─────────────────────────────────
 
 def _resolve_alias(rel: str, file_contents: dict, lang: str) -> str | None:
     """Resolve a path-alias-relative path (e.g. from @/components/Foo) to a full path."""
@@ -409,7 +321,7 @@ def _resolve_alias(rel: str, file_contents: dict, lang: str) -> str | None:
     return None
 
 
-# ── 7. Build + store dependency graph (Python + JS/TS) ───────
+# ── 8. Build + store dependency graph (Python + JS/TS) ───────
 
 def build_and_store_graph(file_contents: dict, repo_id: str, db: Session, file_languages: dict = None):
     if file_languages is None:
@@ -455,7 +367,6 @@ def build_and_store_graph(file_contents: dict, repo_id: str, db: Session, file_l
                                 resolved += ".ts" if lang == "typescript" else ".js"
                     graph.add_edge(file_path, resolved)
                 elif imp.startswith("@/") or imp.startswith("~/"):
-                    # Path alias — search file_contents for a matching suffix
                     rel = imp[2:]
                     target = _resolve_alias(rel, file_contents, lang)
                     graph.add_edge(file_path, target if target else imp)
@@ -473,11 +384,9 @@ def build_and_store_graph(file_contents: dict, repo_id: str, db: Session, file_l
     return graph
 
 
-# ── 8. Precompute call edges (Python only) ───────────────────
+# ── 9. Precompute call edges (Python only) ───────────────────
 
 def store_call_edges(file_contents: dict, all_symbols: list[dict], repo_id: str, db: Session):
-    # Key: (file_name, func_name) → id, to avoid collisions when multiple files
-    # define functions with the same name (e.g. __init__, main, run).
     func_id_map: dict[tuple[str, str], str] = {}
     for sym in all_symbols:
         file_name = sym["file_path"].split("/")[-1]
@@ -509,7 +418,6 @@ def store_call_edges(file_contents: dict, all_symbols: list[dict], repo_id: str,
                             elif isinstance(child.func, ast.Attribute):
                                 call_name = child.func.attr
                             if call_name:
-                                # Match callee against any file that defines this function name
                                 callee_id = None
                                 for (f, fn), fid in func_id_map.items():
                                     if fn == call_name:
@@ -530,7 +438,7 @@ def store_call_edges(file_contents: dict, all_symbols: list[dict], repo_id: str,
         raise
 
 
-# ── 9. Orchestrator ───────────────────────────────────────────
+# ── 10. Orchestrator ──────────────────────────────────────────
 
 async def ingest(
     repo_url: str,
@@ -545,13 +453,6 @@ async def ingest(
         if on_progress:
             on_progress(msg)
 
-    # Auto-disable embeddings when the API key is absent so ingestion
-    # always completes (falls back to keyword-only search).
-    jina_key = os.getenv("JINA_API_KEY", "").strip()
-    effective_use_embeddings = USE_EMBEDDINGS and bool(jina_key)
-    if USE_EMBEDDINGS and not jina_key:
-        progress("JINA_API_KEY not set — using keyword search (no vector embeddings)")
-
     progress("Cloning repository…")
     temp_dir = await anyio.to_thread.run_sync(clone_repo, repo_url)
 
@@ -562,7 +463,6 @@ async def ingest(
         file_counts: dict[str, int] = {}
         pending_chunks: list[dict] = []
         total_files = 0
-        total_embedded = 0   # tracks how many chunks have been embedded so far
 
         JS_TS = {"javascript", "typescript"}
 
@@ -600,26 +500,13 @@ async def ingest(
 
             # Flush in batches to keep memory bounded
             if len(pending_chunks) >= EMBED_BATCH:
-                embed_this_batch = (
-                    effective_use_embeddings and total_embedded < MAX_EMBED_CHUNKS
-                )
-                if embed_this_batch:
-                    progress(f"Embedding… ({total_files} files, {total_embedded + len(pending_chunks)} chunks so far)")
-                    pending_chunks = await embed_chunks(pending_chunks)
-                    total_embedded += len(pending_chunks)
-                else:
-                    progress(f"Storing… ({total_files} files processed)")
+                progress(f"Storing… ({total_files} files processed)")
                 store_vectors(pending_chunks, repo_id, db)
                 pending_chunks = []
 
         # Flush remaining chunks
         if pending_chunks:
-            embed_this_batch = (
-                effective_use_embeddings and total_embedded < MAX_EMBED_CHUNKS
-            )
-            if embed_this_batch:
-                progress(f"Finalizing embeddings… ({total_files} files total)")
-                pending_chunks = await embed_chunks(pending_chunks)
+            progress(f"Finalizing… ({total_files} files total)")
             store_vectors(pending_chunks, repo_id, db)
 
         if all_symbols:

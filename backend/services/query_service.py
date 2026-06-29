@@ -4,63 +4,63 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from clients import groq_client, JINA_API_URL
+from clients import groq_client
 from services import flow_service
 
 
-async def get_embedding(text_input: str) -> list[float]:
-    api_key = os.getenv("JINA_API_KEY")
-    if not api_key:
-        raise Exception("JINA_API_KEY missing")
+def _keyword_search(repo_id: str, query: str, db: Session, limit: int = 10) -> list:
+    """
+    SQLite-compatible keyword search using LIKE.
+    Searches for individual words from the query across code chunks.
+    Falls back to a simple LIMIT query if no words match.
+    """
+    words = [w.strip() for w in re.split(r"\W+", query) if len(w.strip()) > 2]
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            JINA_API_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "jina-embeddings-v3",
-                "task": "retrieval.query",
-                "input": [text_input],
-            },
-            timeout=30,
-        )
+    if words:
+        # Build a LIKE clause for each word (OR across words)
+        conditions = " OR ".join([f"content LIKE :w{i}" for i in range(len(words))])
+        params = {"repo_id": repo_id}
+        params.update({f"w{i}": f"%{w}%" for i, w in enumerate(words)})
+        rows = db.execute(
+            text(f"""
+                SELECT file_path, content, start_line, end_line
+                FROM code_chunks
+                WHERE repo_id = :repo_id AND ({conditions})
+                LIMIT {limit}
+            """),
+            params,
+        ).fetchall()
+    else:
+        rows = db.execute(
+            text("""
+                SELECT file_path, content, start_line, end_line
+                FROM code_chunks
+                WHERE repo_id = :repo_id
+                LIMIT :limit
+            """),
+            {"repo_id": repo_id, "limit": limit},
+        ).fetchall()
 
-    if response.status_code != 200:
-        raise Exception(f"Jina API error: {response.status_code} {response.text}")
-
-    return response.json()["data"][0]["embedding"]
-
-
-def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
-    scores = {}
-    for rank, row in enumerate(vector_results):
-        key = row.file_path + ":" + str(row.start_line)
-        scores[key] = scores.get(key, {"row": row, "score": 0})
-        scores[key]["score"] += 1 / (k + rank + 1)
-    for rank, row in enumerate(keyword_results):
-        key = row.file_path + ":" + str(row.start_line)
-        if key not in scores:
-            scores[key] = {"row": row, "score": 0}
-        scores[key]["score"] += 1 / (k + rank + 1)
-    ranked = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
-    return [entry["row"] for entry in ranked[:5]]
+    return rows
 
 
 def get_symbol_context(repo_id: str, file_paths: list[str], db: Session) -> str:
     if not file_paths:
         return ""
-    rows = db.execute(text("""
+
+    # SQLite-compatible IN clause (no ANY() support)
+    placeholders = ", ".join([f":p{i}" for i in range(len(file_paths))])
+    params = {"repo_id": repo_id}
+    params.update({f"p{i}": fp for i, fp in enumerate(file_paths)})
+
+    rows = db.execute(text(f"""
         SELECT file_path, functions, classes, imports, top_level_docstring
         FROM file_symbols
-        WHERE repo_id = :repo_id AND file_path = ANY(:paths)
-    """), {"repo_id": repo_id, "paths": file_paths}).fetchall()
+        WHERE repo_id = :repo_id AND file_path IN ({placeholders})
+    """), params).fetchall()
 
     if not rows:
         return ""
@@ -166,36 +166,8 @@ async def answer(repo_id: str, question: str, db: Session) -> dict:
             answer_text = result["explanation"] + "\n\n*Flow diagram rendered below.*"
             return {"answer": answer_text, "sources": [], "mermaid": result["mermaid"], "diagram_type": "flow"}
 
-    # ── normal Q&A ────────────────────────────────────────────
-
-    has_embeddings = db.execute(text("""
-        SELECT 1 FROM code_chunks
-        WHERE repo_id = :repo_id AND embedding IS NOT NULL
-        LIMIT 1
-    """), {"repo_id": repo_id}).fetchone() is not None
-
-    if has_embeddings:
-        question_vector = await get_embedding(question)
-        vector_results = db.execute(text(f"""
-            SELECT file_path, content, start_line, end_line
-            FROM code_chunks
-            WHERE repo_id = :repo_id AND embedding IS NOT NULL
-            ORDER BY embedding <=> '[{",".join(map(str, question_vector))}]'::vector
-            LIMIT 10
-        """), {"repo_id": repo_id}).fetchall()
-    else:
-        vector_results = []
-
-    keyword_results = db.execute(text("""
-        SELECT file_path, content, start_line, end_line
-        FROM code_chunks
-        WHERE repo_id = :repo_id
-          AND to_tsvector('english', content) @@ plainto_tsquery('english', :query)
-        ORDER BY ts_rank(to_tsvector('english', content), plainto_tsquery('english', :query)) DESC
-        LIMIT 10
-    """), {"repo_id": repo_id, "query": question}).fetchall()
-
-    all_chunks = reciprocal_rank_fusion(vector_results, keyword_results)
+    # ── keyword search (SQLite-compatible LIKE) ───────────────
+    all_chunks = _keyword_search(repo_id, question, db)
 
     if not all_chunks:
         llm_response = await groq_client.chat.completions.create(

@@ -1,27 +1,19 @@
+"""
+feature_proposer.py (backend)
+
+Proposes architectural mutations for a given feature request using Groq.
+Uses the shared groq_client from clients.py — no separate API key management needed.
+
+This module is responsible only for reasoning.
+It does NOT modify the graph.
+"""
 import json
 import logging
-import os
 from typing import Any
 
-from groq import AsyncGroq
+from clients import groq_client
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Groq client (re-uses key from environment, same as the forked repo)
-# ---------------------------------------------------------------------------
-_groq_client: AsyncGroq | None = None
-
-
-def get_groq_client() -> AsyncGroq:
-    global _groq_client
-    if _groq_client is None:
-        api_key = os.environ.get("GROQ_API_KEY")
-        if not api_key:
-            raise RuntimeError("GROQ_API_KEY environment variable not set")
-        _groq_client = AsyncGroq(api_key=api_key)
-    return _groq_client
-
 
 # ---------------------------------------------------------------------------
 # Prompts
@@ -65,7 +57,7 @@ Output schema (return exactly this, nothing else):
     }
   ],
   "rationale": "2-3 sentences explaining WHY new components are placed where they are relative to the existing architecture",
-  "impl_plan": [
+  "implementation_plan": [
     "ACTION: path/to/file.py — what to do (CREATE new file / MODIFY existing / ADD method to ClassName)"
   ],
   "complexity": "low|medium|high",
@@ -75,7 +67,7 @@ Output schema (return exactly this, nothing else):
 Rules:
 - Only add nodes that are genuinely necessary for the feature
 - Place new components consistently with the existing architecture patterns you observe
-- impl_plan steps must be ordered (dependencies before dependents)
+- implementation_plan steps must be ordered (dependencies before dependents)
 - If a feature touches an existing node, prefer modify_nodes over adding duplicate nodes
 - Never invent frameworks or libraries not already present in the graph
 - Keep file_path values consistent with the existing project structure you see
@@ -97,8 +89,22 @@ class FeatureProposer:
     """
     Proposes architectural mutations for a given feature request.
 
-    Designed to work with the graph format produced by the forked repo's
-    ingestion pipeline (nodes/edges as dicts).
+    Accepts:
+        - current architecture graph (nodes + edges)
+        - repository metadata (embedded in graph)
+        - user feature request (natural language string)
+
+    Returns:
+        {
+            "add_nodes": [],
+            "add_edges": [],
+            "modify_nodes": [],
+            "rationale": "",
+            "implementation_plan": []
+        }
+
+    This module is responsible only for reasoning. It does NOT modify the graph.
+    Uses the shared groq_client (X / groq_client) from clients.py.
     """
 
     MODEL_FAST = "llama-3.3-70b-versatile"    # main reasoning model
@@ -138,8 +144,7 @@ class FeatureProposer:
         )
 
         try:
-            client = get_groq_client()
-            response = await client.chat.completions.create(
+            response = await groq_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -205,13 +210,6 @@ class FeatureProposer:
             if e.get("source") in kept_ids and e.get("target") in kept_ids
         ][:max_edges]
 
-        if len(nodes) > max_nodes:
-            logger.debug(
-                "Graph trimmed: %d→%d nodes, %d→%d edges",
-                len(nodes), len(kept_nodes),
-                len(edges), len(kept_edges),
-            )
-
         return {"nodes": kept_nodes, "edges": kept_edges}
 
     def _validate_and_fill_defaults(self, result: dict) -> dict:
@@ -220,7 +218,7 @@ class FeatureProposer:
         result.setdefault("add_edges", [])
         result.setdefault("modify_nodes", [])
         result.setdefault("rationale", "")
-        result.setdefault("impl_plan", [])
+        result.setdefault("implementation_plan", result.pop("impl_plan", []))
         result.setdefault("complexity", "medium")
         result.setdefault("estimated_hours", 4)
 
@@ -240,7 +238,7 @@ class FeatureProposer:
             "add_edges": [],
             "modify_nodes": [],
             "rationale": "",
-            "impl_plan": [],
+            "implementation_plan": [],
             "complexity": "unknown",
             "estimated_hours": 0,
         }

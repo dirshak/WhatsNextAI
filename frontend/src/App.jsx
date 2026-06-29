@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { useState, useEffect, useRef } from "react";
 import DiagramPanel from "./DiagramPanel";
 import KnowledgeGraph from "./KnowledgeGraph";
+import FeaturePanel from "./FeaturePanel";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
 
@@ -33,7 +34,7 @@ function Header({ theme, onToggleTheme }) {
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-0.02em", color: "var(--text)" }}>
-          codebase.ai
+          GraphForge
         </div>
         <div style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--mono)", marginTop: 1 }}>
           understand any repo instantly
@@ -227,7 +228,7 @@ function MermaidBlock({ code, theme }) {
 
 // ── QueryPanel ────────────────────────────────────────────────
 
-function QueryPanel({ repoId, repoUrl, theme, onShowGraph, onShowDiagram, onShowKnowledgeGraph }) {
+function QueryPanel({ repoId, repoUrl, theme, onShowGraph, onShowDiagram, onShowKnowledgeGraph, onShowFeaturePanel }) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -331,6 +332,14 @@ function QueryPanel({ repoId, repoUrl, theme, onShowGraph, onShowDiagram, onShow
             onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-dim)"; }}>
             Knowledge Graph
           </button>
+          <button
+            id="show-feature-panel-btn"
+            onClick={onShowFeaturePanel}
+            style={{ ...btnStyle, background: "linear-gradient(135deg,rgba(34,197,94,0.15),rgba(78,240,192,0.15))", borderColor: "rgba(34,197,94,0.4)", color: "#22c55e" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#4ef0c0"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(34,197,94,0.4)"; e.currentTarget.style.color = "#22c55e"; }}>
+            ⚡ Propose Feature
+          </button>
           {messages.length > 0 && (
             <>
               <button onClick={exportTxt} style={btnStyle}
@@ -428,6 +437,187 @@ function QueryPanel({ repoId, repoUrl, theme, onShowGraph, onShowDiagram, onShow
   );
 }
 
+// ── ProposalResultPanel ───────────────────────────────────────
+
+
+function ProposalResultPanel({ result, theme, onClose }) {
+  const [tab, setTab] = useState("plan"); // plan | rationale | arch | er | diff
+  if (!result) return null;
+
+  const tabs = [
+    { id: "plan", label: "Implementation Plan" },
+    { id: "rationale", label: "Rationale" },
+    { id: "arch", label: "Architecture" },
+    { id: "er", label: "ER Diagram" },
+    { id: "diff", label: "Diff" },
+  ];
+
+  const panelStyle = {
+    position: "fixed",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 380,
+    background: "var(--surface)",
+    borderTop: "1px solid #22c55e",
+    boxShadow: "0 -8px 32px rgba(34,197,94,0.15)",
+    zIndex: 150,
+    display: "flex",
+    flexDirection: "column",
+    animation: "slideInUp 0.3s ease both",
+  };
+
+  return (
+    <div style={panelStyle}>
+      {/* Tab bar */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        borderBottom: "1px solid var(--border)",
+        padding: "0 16px",
+        background: "var(--bg)",
+        gap: 4,
+        flexShrink: 0,
+      }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginRight: 16,
+          padding: "10px 0",
+        }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
+          <span style={{ fontSize: 11, fontFamily: "var(--mono)", color: "#22c55e", fontWeight: 700, letterSpacing: "0.06em" }}>
+            PROPOSAL APPLIED
+          </span>
+        </div>
+        {tabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              background: tab === t.id ? "var(--surface)" : "transparent",
+              border: "none",
+              borderBottom: tab === t.id ? "2px solid #22c55e" : "2px solid transparent",
+              padding: "10px 14px",
+              color: tab === t.id ? "var(--text)" : "var(--text-dim)",
+              fontFamily: "var(--mono)",
+              fontSize: 11,
+              cursor: "pointer",
+              letterSpacing: "0.04em",
+              transition: "color 0.15s",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={onClose}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            color: "var(--text-dim)",
+            padding: "4px 10px",
+            fontFamily: "var(--mono)",
+            fontSize: 11,
+            cursor: "pointer",
+          }}
+        >✕ Dismiss</button>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+        {tab === "plan" && (
+          <div>
+            <div style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--mono)", marginBottom: 12 }}>
+              {result.implementation_plan?.length || 0} steps
+              {result.diff_summary && (
+                <span style={{ marginLeft: 16 }}>
+                  +{result.diff_summary.added_nodes} nodes · +{result.diff_summary.added_edges} edges · ~{result.diff_summary.modified_nodes} modified
+                  {result.diff_summary.complexity && <span> · complexity: <strong style={{ color: "#f59e0b" }}>{result.diff_summary.complexity}</strong></span>}
+                  {result.diff_summary.estimated_hours > 0 && <span> · ~{result.diff_summary.estimated_hours}h</span>}
+                </span>
+              )}
+            </div>
+            {(result.implementation_plan || []).map((step, i) => (
+              <div key={i} style={{
+                display: "flex",
+                gap: 12,
+                padding: "10px 14px",
+                marginBottom: 6,
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                fontSize: 12,
+                fontFamily: "var(--mono)",
+                color: "var(--text)",
+                lineHeight: 1.5,
+              }}>
+                <span style={{ color: "#22c55e", fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>
+                <span>{step}</span>
+              </div>
+            ))}
+            {(result.warnings || []).length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 10, color: "#f59e0b", fontFamily: "var(--mono)", marginBottom: 6, letterSpacing: "0.08em" }}>WARNINGS</div>
+                {result.warnings.map((w, i) => (
+                  <div key={i} style={{ padding: "8px 12px", marginBottom: 4, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: "var(--radius)", fontSize: 11, fontFamily: "var(--mono)", color: "#f59e0b" }}>
+                    ⚠ {w}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "rationale" && (
+          <div style={{ fontSize: 14, fontFamily: "var(--mono)", color: "var(--text)", lineHeight: 1.8, maxWidth: 720 }}>
+            {result.rationale || "No rationale provided."}
+          </div>
+        )}
+
+        {tab === "arch" && result.architecture_mermaid && (
+          <MermaidBlock code={result.architecture_mermaid} theme={theme} />
+        )}
+
+        {tab === "er" && result.er_mermaid && (
+          <MermaidBlock code={result.er_mermaid} theme={theme} />
+        )}
+
+        {tab === "diff" && result.diff_summary && (
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {[
+              { label: "Added Nodes", value: result.diff_summary.added_nodes, color: "#22c55e" },
+              { label: "Modified Nodes", value: result.diff_summary.modified_nodes, color: "#f59e0b" },
+              { label: "Added Edges", value: result.diff_summary.added_edges, color: "#4ef0c0" },
+              { label: "Complexity", value: result.diff_summary.complexity, color: "#a78bfa" },
+              { label: "Est. Hours", value: result.diff_summary.estimated_hours, color: "var(--text-dim)" },
+            ].map(item => (
+              <div key={item.label} style={{
+                padding: "16px 24px",
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                textAlign: "center",
+                minWidth: 100,
+              }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: item.color, fontFamily: "var(--mono)" }}>
+                  {item.value ?? "—"}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: "0.08em" }}>
+                  {item.label.toUpperCase()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────
 
 export default function App() {
@@ -437,6 +627,8 @@ export default function App() {
   const [showDiagram, setShowDiagram] = useState(false);
   const [diagramMode, setDiagramMode] = useState("architecture");
   const [showKnowledgeGraph, setShowKnowledgeGraph] = useState(false);
+  const [showFeaturePanel, setShowFeaturePanel] = useState(false);
+  const [proposalResult, setProposalResult] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 
   useEffect(() => {
@@ -454,22 +646,53 @@ export default function App() {
       {!repoId
         ? <IngestPanel onIngested={(id, url) => { setRepoId(id); setRepoUrl(url); }} />
         : <QueryPanel
-            repoId={repoId}
-            repoUrl={repoUrl}
-            theme={theme}
-            onShowGraph={() => setShowGraph(true)}
-            onShowDiagram={(mode) => { setDiagramMode(mode); setShowDiagram(true); }}
-            onShowKnowledgeGraph={() => setShowKnowledgeGraph(true)}
-          />
+          repoId={repoId}
+          repoUrl={repoUrl}
+          theme={theme}
+          onShowGraph={() => setShowGraph(true)}
+          onShowDiagram={(mode) => { setDiagramMode(mode); setShowDiagram(true); }}
+          onShowKnowledgeGraph={() => setShowKnowledgeGraph(true)}
+          onShowFeaturePanel={() => setShowFeaturePanel(true)}
+        />
       }
       {showGraph && (
-        <GraphPanel repoId={repoId} repoUrl={repoUrl} theme={theme} onClose={() => setShowGraph(false)} />
+        <GraphPanel
+          repoId={repoId}
+          repoUrl={repoUrl}
+          theme={theme}
+          onClose={() => setShowGraph(false)}
+          proposalResult={proposalResult}
+        />
       )}
       {showDiagram && (
-        <DiagramPanel repoId={repoId} repoUrl={repoUrl} mode={diagramMode} theme={theme} onClose={() => setShowDiagram(false)} />
+        <DiagramPanel
+          repoId={repoId}
+          repoUrl={repoUrl}
+          mode={diagramMode}
+          theme={theme}
+          onClose={() => setShowDiagram(false)}
+          proposalResult={proposalResult}
+        />
       )}
       {showKnowledgeGraph && (
         <KnowledgeGraph repoId={repoId} repoUrl={repoUrl} theme={theme} onClose={() => setShowKnowledgeGraph(false)} />
+      )}
+      {showFeaturePanel && (
+        <FeaturePanel
+          repoId={repoId}
+          onClose={() => setShowFeaturePanel(false)}
+          onProposal={(result) => {
+            setProposalResult(result);
+            setShowFeaturePanel(false);
+            // Auto-open graph and diagram panels to show changes
+            setShowGraph(true);
+            setDiagramMode("architecture");
+            setShowDiagram(true);
+          }}
+        />
+      )}
+      {proposalResult && (
+        <ProposalResultPanel result={proposalResult} theme={theme} onClose={() => setProposalResult(null)} />
       )}
     </>
   );
