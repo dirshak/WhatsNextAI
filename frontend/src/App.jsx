@@ -3,7 +3,6 @@ import './App.css';
 import { useState } from "react";
 import Navbar from './components/Navbar';
 import Workspace from './components/Workspace';
-import FeatureSidebar from './components/FeatureSidebar';
 import BottomTabs from './components/BottomTabs';
 
 export default function App() {
