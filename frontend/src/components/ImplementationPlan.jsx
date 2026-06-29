@@ -1,62 +1,49 @@
 // src/components/ImplementationPlan.jsx
 import { useState } from "react";
 
-export default function ImplementationPlan({ result, onClose }) {
+export default function ImplementationPlan({ result }) {
     const [tab, setTab] = useState("plan");
 
     const tabs = [
-        { id: "plan", label: "Implementation Plan" },
+        { id: "plan",      label: "Implementation Plan" },
         { id: "rationale", label: "Rationale" },
-        { id: "diff", label: "Diff" },
+        { id: "diff",      label: "Stats" },
     ];
 
+    if (!result) {
+        return (
+            <div className="empty-state">
+                <div className="empty-state-icon">📋</div>
+                <div className="empty-state-title">No Plan Yet</div>
+                <div className="empty-state-desc">
+                    Propose a feature using the sidebar to generate an implementation plan.
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="plan-panel">
+        <div className="plan-panel fade-in">
             <div className="plan-panel-header">
                 <h4>
                     <span style={{ color: "var(--accent-green)" }}>●</span>
                     Implementation Plan
                 </h4>
-                <button
-                    onClick={onClose}
-                    style={{
-                        background: "transparent",
-                        border: "1px solid var(--border-color)",
-                        borderRadius: "var(--radius)",
-                        padding: "4px 10px",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: 11,
-                        fontFamily: "var(--font-mono)",
-                    }}
-                >
-                    ✕ Close
-                </button>
+                <span style={{
+                    fontSize: 10,
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--text-muted)",
+                }}>
+                    {result.implementation_plan?.length || 0} steps
+                </span>
             </div>
 
-            <div style={{
-                display: "flex",
-                gap: 4,
-                padding: "0 16px",
-                background: "var(--bg-tertiary)",
-                borderBottom: "1px solid var(--border-color)",
-                flexShrink: 0,
-            }}>
+            <div className="plan-panel-tabs">
                 {tabs.map(t => (
                     <button
                         key={t.id}
+                        className={`plan-tab-btn ${tab === t.id ? "active" : ""}`}
                         onClick={() => setTab(t.id)}
-                        style={{
-                            background: "transparent",
-                            border: "none",
-                            borderBottom: tab === t.id ? "2px solid var(--accent-blue)" : "2px solid transparent",
-                            padding: "8px 14px",
-                            color: tab === t.id ? "var(--text-primary)" : "var(--text-muted)",
-                            fontFamily: "var(--font-mono)",
-                            fontSize: 11,
-                            cursor: "pointer",
-                            transition: "all 0.15s",
-                        }}
                     >
                         {t.label}
                     </button>
@@ -66,23 +53,27 @@ export default function ImplementationPlan({ result, onClose }) {
             <div className="plan-panel-body">
                 {tab === "plan" && (
                     <>
-                        <div style={{
-                            fontSize: 11,
-                            color: "var(--text-muted)",
-                            fontFamily: "var(--font-mono)",
-                            marginBottom: 12,
-                        }}>
-                            {result.implementation_plan?.length || 0} steps
-                            {result.diff_summary && (
-                                <span style={{ marginLeft: 16 }}>
-                                    +{result.diff_summary.added_nodes} nodes ·
-                                    +{result.diff_summary.added_edges} edges
-                                    {result.diff_summary.estimated_hours > 0 &&
-                                        ` · ~${result.diff_summary.estimated_hours}h`
-                                    }
+                        {result.diff_summary && (
+                            <div style={{
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                                fontFamily: "var(--font-mono)",
+                                marginBottom: 14,
+                                display: "flex",
+                                gap: 16,
+                                flexWrap: "wrap",
+                            }}>
+                                <span style={{ color: "var(--accent-green)" }}>
+                                    +{result.diff_summary.added_nodes} nodes
                                 </span>
-                            )}
-                        </div>
+                                <span style={{ color: "var(--accent-blue)" }}>
+                                    +{result.diff_summary.added_edges} edges
+                                </span>
+                                {result.diff_summary.estimated_hours > 0 && (
+                                    <span>~{result.diff_summary.estimated_hours}h estimated</span>
+                                )}
+                            </div>
+                        )}
 
                         {(result.implementation_plan || []).map((step, i) => (
                             <div key={i} className="plan-step">
@@ -93,10 +84,10 @@ export default function ImplementationPlan({ result, onClose }) {
 
                         <div className="plan-stats">
                             {[
-                                { label: "Added Nodes", value: result.diff_summary?.added_nodes, color: "var(--accent-green)" },
-                                { label: "Modified Nodes", value: result.diff_summary?.modified_nodes, color: "var(--accent-orange)" },
-                                { label: "Added Edges", value: result.diff_summary?.added_edges, color: "var(--accent-blue)" },
-                                { label: "Est. Hours", value: result.diff_summary?.estimated_hours, color: "var(--text-muted)" },
+                                { label: "Added Nodes",    value: result.diff_summary?.added_nodes,    color: "var(--accent-green)" },
+                                { label: "Modified Nodes", value: result.diff_summary?.modified_nodes,  color: "var(--accent-orange)" },
+                                { label: "Added Edges",    value: result.diff_summary?.added_edges,     color: "var(--accent-blue)" },
+                                { label: "Est. Hours",     value: result.diff_summary?.estimated_hours, color: "var(--text-muted)" },
                             ].map(item => (
                                 <div key={item.label} className="plan-stat">
                                     <div className="value" style={{ color: item.color }}>
@@ -115,6 +106,7 @@ export default function ImplementationPlan({ result, onClose }) {
                                     fontFamily: "var(--font-mono)",
                                     letterSpacing: "0.08em",
                                     marginBottom: 6,
+                                    textTransform: "uppercase",
                                 }}>
                                     ⚠ Warnings
                                 </div>
@@ -139,7 +131,7 @@ export default function ImplementationPlan({ result, onClose }) {
 
                 {tab === "rationale" && (
                     <div style={{
-                        fontFamily: "var(--font-mono)",
+                        fontFamily: "var(--font-sans)",
                         fontSize: 13,
                         color: "var(--text-secondary)",
                         lineHeight: 1.8,
@@ -153,14 +145,14 @@ export default function ImplementationPlan({ result, onClose }) {
                     </div>
                 )}
 
-                {tab === "diff" && result.diff_summary && (
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {tab === "diff" && (
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                         {[
-                            { label: "Added Nodes", value: result.diff_summary.added_nodes, color: "var(--accent-green)" },
-                            { label: "Modified Nodes", value: result.diff_summary.modified_nodes, color: "var(--accent-orange)" },
-                            { label: "Added Edges", value: result.diff_summary.added_edges, color: "var(--accent-blue)" },
-                            { label: "Complexity", value: result.diff_summary.complexity, color: "var(--accent-purple)" },
-                            { label: "Est. Hours", value: result.diff_summary.estimated_hours, color: "var(--text-muted)" },
+                            { label: "Added Nodes",    value: result.diff_summary?.added_nodes,    color: "var(--accent-green)" },
+                            { label: "Modified Nodes", value: result.diff_summary?.modified_nodes,  color: "var(--accent-orange)" },
+                            { label: "Added Edges",    value: result.diff_summary?.added_edges,     color: "var(--accent-blue)" },
+                            { label: "Complexity",     value: result.diff_summary?.complexity,      color: "var(--accent-purple)" },
+                            { label: "Est. Hours",     value: result.diff_summary?.estimated_hours, color: "var(--text-muted)" },
                         ].map(item => (
                             <div key={item.label} className="plan-stat">
                                 <div className="value" style={{ color: item.color }}>

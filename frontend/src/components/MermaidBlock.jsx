@@ -1,32 +1,25 @@
 // src/components/MermaidBlock.jsx
 import { useEffect, useRef } from "react";
 
-export default function MermaidBlock({ code, theme }) {
+export default function MermaidBlock({ code }) {
     const ref = useRef(null);
 
     useEffect(() => {
         if (!ref.current || !code) return;
 
         import("mermaid").then(m => {
-            const mermaidTheme = theme === "light" ? "default" : "dark";
             m.default.initialize({
                 startOnLoad: false,
-                theme: mermaidTheme,
+                theme: "dark",
                 themeVariables: {
-                    fontFamily: "JetBrains Mono, monospace",
-                    ...(theme === "light" ? {
-                        background: "#F8FAFC",
-                        primaryColor: "#FFFFFF",
-                        primaryTextColor: "#0F172A",
-                        primaryBorderColor: "#059669",
-                        lineColor: "#E2E8F0",
-                    } : {
-                        background: "#0F172A",
-                        primaryColor: "#1E293B",
-                        primaryTextColor: "#F8FAFC",
-                        primaryBorderColor: "#10B981",
-                        lineColor: "#334155",
-                    }),
+                    background:         "#0B1220",
+                    primaryColor:       "#161D2E",
+                    primaryTextColor:   "#F8FAFC",
+                    primaryBorderColor: "#22C55E",
+                    lineColor:          "#2D3748",
+                    secondaryColor:     "#1F2937",
+                    tertiaryColor:      "#0B1220",
+                    fontFamily:         "JetBrains Mono, monospace",
                 },
             });
 
@@ -37,7 +30,7 @@ export default function MermaidBlock({ code, theme }) {
                 if (ref.current) ref.current.innerHTML = `<pre style="color:var(--accent-blue);font-size:10px;overflow:auto">${code}</pre>`;
             });
         });
-    }, [code, theme]);
+    }, [code]);
 
     return (
         <div ref={ref} style={{

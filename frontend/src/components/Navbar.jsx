@@ -1,29 +1,30 @@
 // src/components/Navbar.jsx
-export default function Navbar({ theme, onToggleTheme, repoUrl, isConnected }) {
+export default function Navbar({ repoUrl, isConnected }) {
+  const shortUrl = repoUrl ? repoUrl.replace('https://github.com/', '') : null;
+
   return (
     <nav className="navbar">
       <div className="navbar-brand">
         <div className="navbar-logo">G</div>
         <div>
           <div className="navbar-title">GraphForgeAI</div>
-          <div className="navbar-subtitle">Architecture Evolution</div>
+          <div className="navbar-subtitle">Architecture Evolution Platform</div>
         </div>
       </div>
 
       <div className="navbar-actions">
-        {repoUrl && (
+        {isConnected && shortUrl && (
           <div className="navbar-status">
-            <span className={`navbar-status-dot ${isConnected ? '' : 'disconnected'}`} />
-            {isConnected ? repoUrl.replace('https://github.com/', '') : 'Disconnected'}
+            <span className="navbar-status-dot" />
+            {shortUrl}
           </div>
         )}
-        <button
-          className="theme-toggle"
-          onClick={onToggleTheme}
-          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {theme === "dark" ? "☀" : "☾"}
-        </button>
+        {!isConnected && (
+          <div className="navbar-status">
+            <span className="navbar-status-dot disconnected" />
+            No repository
+          </div>
+        )}
       </div>
     </nav>
   );

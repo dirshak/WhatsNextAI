@@ -58,7 +58,7 @@ Output schema (return exactly this, nothing else):
   ],
   "rationale": "2-3 sentences explaining WHY new components are placed where they are relative to the existing architecture",
   "implementation_plan": [
-    "ACTION: path/to/file.py — what to do (CREATE new file / MODIFY existing / ADD method to ClassName)"
+    "ACTION: path/to/file.py — highly descriptive step detailing exactly which functions, classes, arguments, and specific logic to create or modify."
   ],
   "complexity": "low|medium|high",
   "estimated_hours": 2
@@ -68,6 +68,7 @@ Rules:
 - Only add nodes that are genuinely necessary for the feature
 - Place new components consistently with the existing architecture patterns you observe
 - implementation_plan steps must be ordered (dependencies before dependents)
+- Make implementation_plan extremely descriptive, explicitly detailing what specific functions, classes, arguments, and logic to modify or add in each file.
 - If a feature touches an existing node, prefer modify_nodes over adding duplicate nodes
 - Never invent frameworks or libraries not already present in the graph
 - Keep file_path values consistent with the existing project structure you see

@@ -5,26 +5,67 @@ import * as d3 from "d3";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
 
-function getMermaidConfig(theme) {
-    const dark = theme !== "light";
-    return {
-        startOnLoad: false,
-        theme: dark ? "dark" : "default",
-        themeVariables: {
-            background: dark ? "#0F172A" : "#F8FAFC",
-            primaryColor: dark ? "#1E293B" : "#FFFFFF",
-            primaryTextColor: dark ? "#F8FAFC" : "#0F172A",
-            primaryBorderColor: dark ? "#10B981" : "#059669",
-            lineColor: dark ? "#334155" : "#E2E8F0",
-            secondaryColor: dark ? "#1E293B" : "#F1F5F9",
-            tertiaryColor: dark ? "#0F172A" : "#F8FAFC",
-            fontFamily: "JetBrains Mono, monospace",
-            fontSize: "13px",
-        },
-    };
-}
+const BASE_THEME_VARS = {
+    background:          "#0B1220",
+    primaryColor:        "#161D2E",
+    primaryTextColor:    "#F8FAFC",
+    primaryBorderColor:  "#22C55E",
+    lineColor:           "#3B82F6",
+    secondaryColor:      "#1F2937",
+    tertiaryColor:       "#0D1526",
+    edgeLabelBackground: "#111827",
+    fontFamily:          "JetBrains Mono, monospace",
+    fontSize:            "13px",
+};
 
-export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalResult }) {
+// Architecture diagram config — clear hierarchy, tight layout
+const ARCH_CONFIG = {
+    startOnLoad: false,
+    theme: "dark",
+    themeVariables: {
+        ...BASE_THEME_VARS,
+        primaryBorderColor: "#22C55E",
+        lineColor:          "#3B82F6",
+        fontSize:           "13px",
+        clusterBkg:         "#111827",
+        clusterBorder:      "#2D3748",
+    },
+    flowchart: {
+        htmlLabels: true,
+        curve: "basis",
+        diagramPadding: 16,
+        nodeSpacing: 50,
+        rankSpacing: 60,
+        useMaxWidth: false,
+    },
+};
+
+// ER diagram config — LR layout, clear relationship arrows, high contrast
+const ER_CONFIG = {
+    startOnLoad: false,
+    theme: "dark",
+    themeVariables: {
+        ...BASE_THEME_VARS,
+        primaryBorderColor:  "#60A5FA",
+        lineColor:           "#60A5FA",
+        primaryColor:        "#0F1F3D",
+        primaryTextColor:    "#E2E8F0",
+        // ER attribute rows
+        attributeBackgroundColorEven: "#111827",
+        attributeBackgroundColorOdd:  "#1A2540",
+        fontSize: "14px",
+    },
+    er: {
+        diagramPadding:  40,
+        layoutDirection: "LR",
+        minEntityWidth:  120,
+        minEntityHeight: 80,
+        entityPadding:   20,
+        useMaxWidth:     false,
+    },
+};
+
+export default function DiagramPanel({ repoId, repoUrl, mode, proposalResult }) {
     const wrapperRef = useRef(null);
     const svgContainerRef = useRef(null);
     const zoomRef = useRef(null);
@@ -38,12 +79,7 @@ export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalRes
     const [copiedImg, setCopiedImg] = useState(false);
     const [activeTab, setActiveTab] = useState("diagram");
     const [scale, setScale] = useState(1);
-    const [renderKey, setRenderKey] = useState(0);
 
-    useEffect(() => {
-        mermaid.initialize(getMermaidConfig(theme));
-        if (mermaidCode) setRenderKey(k => k + 1);
-    }, [theme]);
 
     async function fetchDiagram(functionName) {
         setLoading(true);
@@ -62,6 +98,9 @@ export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalRes
             if (mode === "architecture") {
                 const res = await fetch(`${API}/architecture/${repoId}`);
                 data = await res.json();
+            } else if (mode === "er") {
+                const res = await fetch(`${API}/er-diagram/${repoId}`);
+                data = await res.json();
             } else {
                 const res = await fetch(`${API}/flow/${repoId}`, {
                     method: "POST",
@@ -72,7 +111,7 @@ export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalRes
             }
             if (data.error) { setError(data.error); setLoading(false); return; }
             setMermaidCode(data.mermaid);
-            setExplanation(data.explanation);
+            setExplanation(data.explanation || "");
             setActiveTab("diagram");
             setLoading(false);
         } catch {
@@ -82,15 +121,16 @@ export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalRes
     }
 
     useEffect(() => {
-        if (mode === "architecture" || proposalResult) fetchDiagram(null);
-    }, [mode, repoId, proposalResult]);
+        if (mode === "architecture" || mode === "er" || proposalResult) fetchDiagram(null);
+    }, [mode, repoId, proposalResult]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!mermaidCode || loading || activeTab !== "diagram" || !wrapperRef.current) return;
 
         async function render() {
             try {
-                mermaid.initialize(getMermaidConfig(theme));
+                const config = mode === "er" ? ER_CONFIG : ARCH_CONFIG;
+                mermaid.initialize(config);
 
                 const id = `mermaid-${Math.random().toString(36).slice(2)}`;
                 const { svg } = await mermaid.render(id, mermaidCode);
@@ -138,7 +178,7 @@ export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalRes
             }
         }
         render();
-    }, [mermaidCode, loading, activeTab, renderKey]);
+    }, [mermaidCode, loading, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function zoomBy(factor) {
         if (!zoomRef.current || !wrapperRef.current) return;
@@ -191,7 +231,7 @@ export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalRes
     }
 
     function downloadPNG() {
-        const bgColor = theme === "light" ? "#F8FAFC" : "#0F172A";
+        const bgColor = "#0B1220";
         getSVGBlob().then(result => {
             if (!result) return;
             const { encoded, w, h } = result;
@@ -215,7 +255,7 @@ export default function DiagramPanel({ repoId, repoUrl, mode, theme, proposalRes
     }
 
     async function copyImage() {
-        const bgColor = theme === "light" ? "#F8FAFC" : "#0F172A";
+        const bgColor = "#0B1220";
         const result = await getSVGBlob();
         if (!result) return;
         const { encoded, w, h } = result;

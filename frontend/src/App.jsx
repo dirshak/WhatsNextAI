@@ -1,81 +1,86 @@
 // src/App.jsx
 import './App.css';
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Navbar from './components/Navbar';
-import RepositoryPanel from './components/RepositoryPanel';
 import Workspace from './components/Workspace';
 import FeatureSidebar from './components/FeatureSidebar';
 import BottomTabs from './components/BottomTabs';
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
-
 export default function App() {
   const [repoId, setRepoId] = useState(null);
   const [repoUrl, setRepoUrl] = useState("");
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  const [repoStatus, setRepoStatus] = useState("idle"); // idle | loading | done | error
   const [activeTab, setActiveTab] = useState("architecture");
   const [proposalResult, setProposalResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [feature, setFeature] = useState("");
+  const [proposalStatus, setProposalStatus] = useState("idle");
+  const [proposalError, setProposalError] = useState("");
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+  async function triggerProposal(id = repoId, featureText = feature) {
+    if (!featureText.trim() || isAnalyzing) return;
+    setIsAnalyzing(true);
+    setProposalStatus("loading");
+    setProposalError("");
 
-  function toggleTheme() {
-    setTheme(t => t === "dark" ? "light" : "dark");
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:8000/api"}/propose-feature`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo_id: id, feature: featureText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || data.error || "Request failed");
+      setProposalResult(data);
+      setProposalStatus("done");
+      setIsAnalyzing(false);
+      setActiveTab("diff"); // Show Graph Diff by default for a new feature proposal!
+    } catch (err) {
+      setProposalStatus("error");
+      setProposalError(err.message || "Failed to propose feature.");
+      setIsAnalyzing(false);
+    }
+  }
+
+  function handleIngested(id, url) {
+    setRepoId(id);
+    setRepoUrl(url);
+    setRepoStatus("done");
+    if (feature.trim()) {
+      triggerProposal(id, feature);
+    }
   }
 
   return (
     <div className="app">
-      <Navbar
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        repoUrl={repoUrl}
-        isConnected={!!repoId}
-      />
+      <Navbar repoUrl={repoUrl} isConnected={!!repoId} />
 
       <div className="workspace-layout">
         <div className="workspace-main">
-          {!repoId ? (
-            <div className="workspace-center">
-              <RepositoryPanel onIngested={(id, url) => {
-                setRepoId(id);
-                setRepoUrl(url);
-              }} />
-            </div>
-          ) : (
-            <>
-              <div className="workspace-center">
-                <Workspace
-                  repoId={repoId}
-                  repoUrl={repoUrl}
-                  activeTab={activeTab}
-                  proposalResult={proposalResult}
-                  isAnalyzing={isAnalyzing}
-                  theme={theme}
-                />
-              </div>
-
-              <FeatureSidebar
-                repoId={repoId}
-                onProposal={(result) => {
-                  setProposalResult(result);
-                  setIsAnalyzing(false);
-                }}
-                onAnalyzing={() => setIsAnalyzing(true)}
-              />
-            </>
-          )}
+          <div className="workspace-center">
+            <Workspace
+              repoId={repoId}
+              repoUrl={repoUrl}
+              activeTab={activeTab}
+              proposalResult={proposalResult}
+              isAnalyzing={isAnalyzing}
+              onIngested={handleIngested}
+              onStatusChange={setRepoStatus}
+              feature={feature}
+              setFeature={setFeature}
+              proposalStatus={proposalStatus}
+              proposalError={proposalError}
+              onPropose={triggerProposal}
+            />
+          </div>
         </div>
 
-        {repoId && (
-          <BottomTabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            proposalResult={proposalResult}
-          />
-        )}
+        <BottomTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          proposalResult={proposalResult}
+          repoId={repoId}
+        />
       </div>
     </div>
   );
