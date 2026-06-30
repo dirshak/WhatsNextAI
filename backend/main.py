@@ -25,11 +25,12 @@ app = FastAPI(title="GraphForgeAI – AI Architecture Evolution Platform")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# CORS configuration - Allow localhost and Vercel deployments
 allowed_origins = [
     o.strip()
     for o in os.getenv(
         "ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:3001",
+        "http://localhost:3000,http://localhost:3001,https://whatsnextai.vercel.app,https://whatsnextai-git-main-dirshaks-projects.vercel.app",
     ).split(",")
     if o.strip()
 ]
@@ -44,7 +45,6 @@ app.add_middleware(
 app.include_router(ingest.router, prefix="/api", dependencies=[Depends(require_api_key)])
 app.include_router(query.router, prefix="/api", dependencies=[Depends(require_api_key)])
 app.include_router(propose.router, prefix="/api", dependencies=[Depends(require_api_key)])
-
 
 @app.get("/health")
 def health():
