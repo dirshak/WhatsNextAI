@@ -11,6 +11,14 @@ from clients import groq_client
 from services import flow_service
 
 
+# ── Prompt limits ──────────────────────────────────────────────────────────────
+MAX_CHUNKS = 5
+MAX_CHARS_PER_CHUNK = 1200
+MAX_SYMBOL_CONTEXT = 5000
+MAX_TOTAL_CONTEXT = 12000
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def _keyword_search(repo_id: str, query: str, db: Session, limit: int = 10) -> list:
     """
     SQLite-compatible keyword search using LIKE.
@@ -166,6 +174,8 @@ async def answer(repo_id: str, question: str, db: Session) -> dict:
     if is_smalltalk(question):
         llm_response = await groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
+            max_tokens=150,
+            temperature=0.7,
             messages=[
                 {"role": "system", "content": _CONVERSATIONAL_SYSTEM},
                 {"role": "user", "content": question},
@@ -188,12 +198,14 @@ async def answer(repo_id: str, question: str, db: Session) -> dict:
             answer_text = result["explanation"] + "\n\n*Flow diagram rendered below.*"
             return {"answer": answer_text, "sources": [], "mermaid": result["mermaid"], "diagram_type": "flow"}
 
-    # ── keyword search (SQLite-compatible LIKE) ───────────────
-    all_chunks = _keyword_search(repo_id, question, db)
+    # ── keyword search with limit ─────────────────────────────────────────────
+    all_chunks = _keyword_search(repo_id, question, db, limit=MAX_CHUNKS)
 
     if not all_chunks:
         llm_response = await groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
+            max_tokens=150,
+            temperature=0.7,
             messages=[
                 {"role": "system", "content": _CONVERSATIONAL_SYSTEM},
                 {"role": "user", "content": question},
@@ -201,19 +213,61 @@ async def answer(repo_id: str, question: str, db: Session) -> dict:
         )
         return {"answer": llm_response.choices[0].message.content, "sources": [], "mermaid": None}
 
+    # ── Build context with limits ─────────────────────────────────────────────
     matched_files = list(set(c.file_path for c in all_chunks))
+
     symbol_context = get_symbol_context(repo_id, matched_files, db)
-    code_context = "\n\n".join([
-        f"# {c.file_path} (lines {c.start_line}–{c.end_line})\n{c.content}"
-        for c in all_chunks
-    ])
+
+    # Limit AST summary
+    if len(symbol_context) > MAX_SYMBOL_CONTEXT:
+        symbol_context = (
+            symbol_context[:MAX_SYMBOL_CONTEXT]
+            + "\n\n...(truncated)..."
+        )
+
+    # Limit every retrieved chunk
+    trimmed_chunks = []
+
+    for c in all_chunks:
+        content = c.content
+
+        if len(content) > MAX_CHARS_PER_CHUNK:
+            content = (
+                content[:MAX_CHARS_PER_CHUNK]
+                + "\n\n...(truncated)..."
+            )
+
+        trimmed_chunks.append(
+            f"# {c.file_path} (lines {c.start_line}–{c.end_line})\n{content}"
+        )
+
+    code_context = "\n\n".join(trimmed_chunks)
+
     full_context = (
-        (symbol_context + "\n---\n\n## Relevant Code Snippets\n\n" + code_context)
-        if symbol_context else code_context
+        symbol_context
+        + "\n---\n\n## Relevant Code Snippets\n\n"
+        + code_context
+        if symbol_context
+        else code_context
     )
 
+    # Absolute safety cap
+    if len(full_context) > MAX_TOTAL_CONTEXT:
+        full_context = (
+            full_context[:MAX_TOTAL_CONTEXT]
+            + "\n\n...(context truncated)..."
+        )
+
+    print(
+        f"Context chars={len(full_context)} "
+        f"(≈{len(full_context)//4} tokens)"
+    )
+
+    # ── Call LLM with limits ────────────────────────────────────────────────────
     llm_response = await groq_client.chat.completions.create(
         model="llama-3.1-8b-instant",
+        max_tokens=700,
+        temperature=0.2,
         messages=[
             {
                 "role": "system",

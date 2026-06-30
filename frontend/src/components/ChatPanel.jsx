@@ -27,15 +27,15 @@ export default function ChatPanel({ repoId, repoUrl, theme }) {
                 body: JSON.stringify({ repo_id: repoId, question: q }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.detail);
+            if (!res.ok) throw new Error(data.detail || data.error || "Query failed");
             setMessages(prev => [...prev, {
                 role: "assistant",
                 text: data.answer,
                 sources: data.sources,
                 mermaid: data.mermaid || null,
             }]);
-        } catch {
-            setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again.", error: true }]);
+        } catch (err) {
+            setMessages(prev => [...prev, { role: "assistant", text: err.message || "Something went wrong. Please try again.", error: true }]);
         } finally {
             setLoading(false);
         }

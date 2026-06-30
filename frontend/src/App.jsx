@@ -34,7 +34,6 @@ export default function App() {
       setProposalResult(data);
       setProposalStatus("done");
       setIsAnalyzing(false);
-      setActiveTab("diff"); // Show Graph Diff by default for a new feature proposal!
     } catch (err) {
       setProposalStatus("error");
       setProposalError(err.message || "Failed to propose feature.");
@@ -51,9 +50,20 @@ export default function App() {
     }
   }
 
+  function handleDisconnect() {
+    setRepoId(null);
+    setRepoUrl("");
+    setRepoStatus("idle");
+    setProposalResult(null);
+    setProposalStatus("idle");
+    setProposalError("");
+    setFeature("");
+    setActiveTab("architecture");
+  }
+
   return (
     <div className="app">
-      <Navbar repoUrl={repoUrl} isConnected={!!repoId} />
+      <Navbar repoUrl={repoUrl} isConnected={!!repoId} onDisconnect={handleDisconnect} />
 
       <div className="workspace-layout">
         <div className="workspace-main">
@@ -81,6 +91,10 @@ export default function App() {
           proposalResult={proposalResult}
           repoId={repoId}
         />
+
+        <footer className="app-footer">
+          Dirshak Depak Patro | <a href="https://dirshak.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-blue)", textDecoration: "none" }}>dirshak.vercel.app</a> | <a href="https://github.com/dirshak" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-blue)", textDecoration: "none" }}>github.com/dirshak</a>
+        </footer>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 // src/components/RepositoryPanel.jsx
 import { useState, useEffect, useRef } from "react";
 import { API } from '../config';
+import Logo from './Logo';
 
 const GITHUB_RE = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(\.git)?\/?$/;
 
@@ -86,27 +87,40 @@ export default function RepositoryPanel({ onIngested, onStatusChange, feature, s
 
     return (
         <div className="repo-card-wrapper">
-            <div className="repo-card" style={{ maxWidth: "600px", width: "100%" }}>
-                <div className="repo-card-header" style={{ marginBottom: "16px" }}>
-                    <div className="repo-card-icon">🔗</div>
+            {/* Ambient background glows */}
+            <div className="glow-blob-container">
+                <div className="glow-blob glow-blob-blue" />
+                <div className="glow-blob glow-blob-purple" />
+                <div className="glow-blob glow-blob-cyan" />
+            </div>
+
+            <div className="repo-card">
+                {/* Branding: logo + title + tagline in one centered row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "14px", marginBottom: "24px" }}>
+                    <div className="repo-card-logo-wrapper" style={{ margin: 0, flexShrink: 0 }}>
+                        <Logo className="repo-card-logo-img" />
+                    </div>
                     <div>
-                        <div className="repo-card-title">Connect GitHub Repository</div>
+                        <h1 style={{ fontSize: "22px", fontWeight: "800", color: "var(--text-primary)", margin: "0 0 4px 0", fontFamily: "var(--font-sans)", lineHeight: 1.2 }}>What's Next?</h1>
+                        <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: 0, fontFamily: "var(--font-sans)", fontStyle: "italic", lineHeight: 1.4 }}>
+                            "Propose. Preview. Implement. See the Change Before You Build It."
+                        </p>
                     </div>
                 </div>
 
-                {/* Description */}
-                <p style={{
-                    fontSize: "12px",
-                    lineHeight: "1.65",
-                    color: "var(--text-secondary)",
-                    marginBottom: "24px",
-                    fontFamily: "var(--font-sans)"
-                }}>
-                    An AI-powered platform that turns feature ideas into architectural evolution—letting developers propose changes in natural language, instantly preview how their system adapts, visualize added, modified, and removed components, and generate clear implementation plans with suggested files, folders, services, and functions.
+                {/* Project description */}
+                <p style={{ fontSize: "12px", lineHeight: "1.6", color: "var(--text-secondary)", margin: "0 0 20px 0", fontFamily: "var(--font-sans)" }}>
+                    An AI-powered platform that turns feature ideas into architectural evolution — propose changes in natural language, instantly preview how your system adapts, and generate clear implementation plans with suggested files, services, and functions.
                 </p>
 
-                {/* Ingestion Link Group */}
-                <div className="repo-input-group" style={{ marginBottom: "20px" }}>
+                {/* Divider */}
+                <div style={{ borderTop: "1px solid var(--border-color)", marginBottom: "20px" }} />
+
+                {/* Repository URL */}
+                <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Connect GitHub Repository
+                </div>
+                <div className="repo-input-group" style={{ marginBottom: "12px" }}>
                     <input
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
@@ -126,58 +140,32 @@ export default function RepositoryPanel({ onIngested, onStatusChange, feature, s
                     </button>
                 </div>
 
-                {/* Ingest Status */}
-                <div className="repo-status" style={{ marginBottom: "20px", minHeight: "0px" }}>
+                {/* Status */}
+                <div className="repo-status" style={{ minHeight: "18px", marginBottom: "16px" }}>
                     {status === "loading" && (
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             <div className="spinner" />
                             <span>{progress}</span>
                         </div>
                     )}
-                    {status === "error" && (
-                        <span className="error">❌ {errorMsg}</span>
-                    )}
-                    {status === "done" && (
-                        <span className="success">✓ Repository ingested successfully.</span>
-                    )}
+                    {status === "error" && <span className="error">❌ {errorMsg}</span>}
+                    {status === "done"  && <span className="success">✓ Repository ingested successfully.</span>}
                 </div>
 
-                {/* New Feature text block below itself */}
-                <div style={{
-                    borderTop: "1px solid var(--border-color)",
-                    paddingTop: "20px"
-                }}>
-                    <div style={{
-                        fontSize: "11px",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: "600",
-                        color: "var(--text-secondary)",
-                        marginBottom: "8px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em"
-                    }}>
-                        New Feature
+                {/* Feature textarea */}
+                <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "16px" }}>
+                    <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        New Feature <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span>
                     </div>
                     <textarea
                         value={feature}
                         onChange={(e) => setFeature(e.target.value)}
-                        placeholder="(Optional) Describe the feature you want to add eventually or leave this field blank and add it after you have viewed the project's architecture"
+                        placeholder="Describe the feature you want to add…"
                         className="feature-textarea"
-                        style={{
-                            width: "100%",
-                            minHeight: "100px",
-                            marginBottom: "8px"
-                        }}
+                        style={{ width: "100%", minHeight: "72px", marginBottom: "0", resize: "vertical" }}
                     />
-                    <div style={{
-                        fontSize: "10px",
-                        fontFamily: "var(--font-mono)",
-                        color: "var(--text-muted)"
-                    }}>
-                        New feature should include (Graph diff, Plan).
-                    </div>
                 </div>
             </div>
         </div>
     );
-}
+}

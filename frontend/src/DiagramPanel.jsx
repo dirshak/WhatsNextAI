@@ -12,8 +12,8 @@ function getMermaidConfig(theme) {
       background:         dark ? "#0a0a0f" : "#f4f4f8",
       primaryColor:       dark ? "#111118" : "#ffffff",
       primaryTextColor:   dark ? "#e8e8f0" : "#0a0a1f",
-      primaryBorderColor: dark ? "#7fff6e" : "#1a801a",
-      lineColor:          dark ? "#44445a" : "#b0b0c0",
+      primaryBorderColor: dark ? "#A855F7" : "#7C3AED",
+      lineColor:          dark ? "#E2E8F0" : "#b0b0c0",
       secondaryColor:     dark ? "#1e1e2e" : "#e8e8f0",
       tertiaryColor:      dark ? "#0a0a0f" : "#f4f4f8",
       fontFamily:         "JetBrains Mono, monospace",
@@ -112,6 +112,30 @@ export default function DiagramPanel({ repoId, repoUrl, onClose, mode, theme, pr
         svgEl.style.width  = naturalW + "px";
         svgEl.style.height = naturalH + "px";
         svgEl.style.display = "block";
+
+        // Force all edges + arrowheads to be visible white
+        // Use JS DOM manipulation (not CSS) to work across all Mermaid versions
+        const EDGE_COLOR = "#E2E8F0";
+
+        // 1. All paths that carry arrows (have marker-end attribute)
+        svgEl.querySelectorAll("path[marker-end], line[marker-end]").forEach(el => {
+          el.style.stroke = EDGE_COLOR;
+          el.style.strokeOpacity = "1";
+        });
+
+        // 2. All paths/polygons inside <marker> elements (arrowhead fills)
+        svgEl.querySelectorAll("marker path, marker polygon, marker circle").forEach(el => {
+          el.style.fill = EDGE_COLOR;
+          el.style.stroke = EDGE_COLOR;
+        });
+
+        // 3. Any remaining flowchart edge path classes (Mermaid 9 / 10 fallback)
+        svgEl.querySelectorAll(
+          ".flowchart-link, .edgePath path, .edge-pattern-solid, .edge-pattern-basic"
+        ).forEach(el => {
+          el.style.stroke = EDGE_COLOR;
+          el.style.strokeOpacity = "1";
+        });
 
         const wrapper = wrapperRef.current;
         const wW = wrapper.clientWidth;

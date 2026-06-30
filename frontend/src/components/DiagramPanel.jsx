@@ -5,16 +5,16 @@ import * as d3 from "d3";
 import { API } from '../config';
 
 const BASE_THEME_VARS = {
-    background:          "#0B1220",
-    primaryColor:        "#161D2E",
-    primaryTextColor:    "#F8FAFC",
-    primaryBorderColor:  "#22C55E",
-    lineColor:           "#3B82F6",
-    secondaryColor:      "#1F2937",
-    tertiaryColor:       "#0D1526",
+    background: "#0B1220",
+    primaryColor: "#161D2E",
+    primaryTextColor: "#F8FAFC",
+    primaryBorderColor: "#A855F7",
+    lineColor: "#3B82F6",
+    secondaryColor: "#1F2937",
+    tertiaryColor: "#0D1526",
     edgeLabelBackground: "#111827",
-    fontFamily:          "JetBrains Mono, monospace",
-    fontSize:            "13px",
+    fontFamily: "JetBrains Mono, monospace",
+    fontSize: "13px",
 };
 
 // Architecture diagram config — clear hierarchy, tight layout
@@ -23,11 +23,11 @@ const ARCH_CONFIG = {
     theme: "dark",
     themeVariables: {
         ...BASE_THEME_VARS,
-        primaryBorderColor: "#22C55E",
-        lineColor:          "#3B82F6",
-        fontSize:           "13px",
-        clusterBkg:         "#111827",
-        clusterBorder:      "#2D3748",
+        primaryBorderColor: "#A855F7",
+        lineColor: "#3B82F6",
+        fontSize: "13px",
+        clusterBkg: "#111827",
+        clusterBorder: "#2D3748",
     },
     flowchart: {
         htmlLabels: true,
@@ -45,22 +45,22 @@ const ER_CONFIG = {
     theme: "dark",
     themeVariables: {
         ...BASE_THEME_VARS,
-        primaryBorderColor:  "#60A5FA",
-        lineColor:           "#60A5FA",
-        primaryColor:        "#0F1F3D",
-        primaryTextColor:    "#E2E8F0",
+        primaryBorderColor: "#60A5FA",
+        lineColor: "#60A5FA",
+        primaryColor: "#0F1F3D",
+        primaryTextColor: "#E2E8F0",
         // ER attribute rows
         attributeBackgroundColorEven: "#111827",
-        attributeBackgroundColorOdd:  "#1A2540",
+        attributeBackgroundColorOdd: "#1A2540",
         fontSize: "14px",
     },
     er: {
-        diagramPadding:  40,
+        diagramPadding: 40,
         layoutDirection: "LR",
-        minEntityWidth:  120,
+        minEntityWidth: 120,
         minEntityHeight: 80,
-        entityPadding:   20,
-        useMaxWidth:     false,
+        entityPadding: 20,
+        useMaxWidth: false,
     },
 };
 

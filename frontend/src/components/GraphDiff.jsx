@@ -226,14 +226,14 @@ export default function GraphDiff({ proposalResult }) {
 
         // Stationary drag handler: Moves elements directly without restarting the force simulation
         const drag = d3.drag()
-            .on("drag", (e, d) => {
+            .on("drag", function(e, d) {
                 d.x = e.x;
                 d.y = e.y;
                 d.fx = e.x;
                 d.fy = e.y;
                 
                 // Move node element translation immediately
-                d3.select(e.sourceEvent.currentTarget.parentElement).attr("transform", `translate(${d.x},${d.y})`);
+                d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
                 
                 // Move connected links manually
                 link
@@ -271,14 +271,15 @@ export default function GraphDiff({ proposalResult }) {
             .on("mouseout", handleMouseOut)
             .on("click", handleNodeClick);
 
-        // 2. Service/Class Level -> Triangles
+        // 2. Service/Class Level -> Squares
         node.filter(d => isServiceOrClass(d.id))
-            .append("polygon")
+            .append("rect")
             .attr("class", "node-shape")
-            .attr("points", d => {
-                const r = nodeRadius(d.id) * 1.1;
-                return `0,${-r} ${-r},${r} ${r},${r}`;
-            })
+            .attr("width", d => nodeRadius(d.id) * 1.6)
+            .attr("height", d => nodeRadius(d.id) * 1.6)
+            .attr("x", d => -nodeRadius(d.id) * 0.8)
+            .attr("y", d => -nodeRadius(d.id) * 0.8)
+            .attr("rx", 2).attr("ry", 2)
             .attr("fill", getFill)
             .attr("stroke", getStroke)
             .attr("stroke-width", d => (d.data?.status === "added" || d.data?.status === "modified") ? 2.5 : 1.5)

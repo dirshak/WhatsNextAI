@@ -14,9 +14,9 @@ const STDLIB = new Set([
 ]);
 
 const NODE_COLORS = {
-    local:    { fill: "#ffffff", stroke: "#16A34A", label: "#15803D" },
-    stdlib:   { fill: "#ffffff", stroke: "#2563EB", label: "#1D4ED8" },
-    external: { fill: "#f3f4f6", stroke: "#9CA3AF", label: "#6B7280" },
+    local:    { fill: "#ffffff", stroke: "#A855F7", label: "#ffffff" },
+    stdlib:   { fill: "#ffffff", stroke: "#60A5FA", label: "#ffffff" },
+    external: { fill: "#ffffff", stroke: "#A78BFA", label: "#ffffff" },
 };
 
 function getNodeType(id) {
@@ -40,7 +40,7 @@ function filterGraphData(data, localOnly, minDegree) {
     const isLocal = id =>
         [".py", ".js", ".ts", ".tsx", ".jsx"].some(ext => id.endsWith(ext));
     const filteredNodes = data.nodes.filter(n => {
-        if (minDegree > 1 && (degree[n.id] || 0) < minDegree) return false;
+        if (minDegree > 0 && (degree[n.id] || 0) < minDegree) return false;
         if (localOnly && !isLocal(n.id)) return false;
         return true;
     });
@@ -62,9 +62,9 @@ export default function GraphPanel({ repoId, repoUrl }) {
     const [tooltip,   setTooltip]   = useState(null);
     const [copied,    setCopied]    = useState(false);
     const [localOnly, setLocalOnly] = useState(false);
-    const [minDegree, setMinDegree] = useState(1);
+    const [minDegree, setMinDegree] = useState(0);
     const [selectedNodeId, setSelectedNodeId] = useState(null);
-    const [detailLevel,    setDetailLevel]    = useState(3); // 1=File, 2=Service, 3=Function
+    const [detailLevel,    setDetailLevel]    = useState(2); // Fixed at Services level
 
     // No diff colouring — base graph is always the original repo state
 
@@ -154,11 +154,11 @@ export default function GraphPanel({ repoId, repoUrl }) {
         const edges = data.edges.map(d => ({ ...d }));
 
         d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(edges).id(d => d.id).distance(90))
-            .force("charge", d3.forceManyBody().strength(-180))
+            .force("link", d3.forceLink(edges).id(d => d.id).distance(140))
+            .force("charge", d3.forceManyBody().strength(-400))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collision", d3.forceCollide(d => nodeRadius(d.id) + 10))
-            .tick(250)
+            .force("collision", d3.forceCollide(d => nodeRadius(d.id) + 55))
+            .tick(400)
             .stop();
 
         // Pin positions so nothing ever moves again
@@ -183,7 +183,7 @@ export default function GraphPanel({ repoId, repoUrl }) {
             .text(d => d.relationship || "imports")
             .attr("font-size", "7px")
             .attr("font-family", "JetBrains Mono, monospace")
-            .attr("fill", "#6B7280")
+            .attr("fill", "rgba(255,255,255,0.5)")
             .attr("text-anchor", "middle")
             .attr("dy", -3)
             .style("pointer-events", "none");
@@ -195,9 +195,9 @@ export default function GraphPanel({ repoId, repoUrl }) {
             .style("cursor", "pointer")
             .call(
                 d3.drag()
-                    .on("drag", (e, d) => {
+                    .on("drag", function(e, d) {
                         d.x = e.x; d.y = e.y; d.fx = e.x; d.fy = e.y;
-                        d3.select(e.sourceEvent.currentTarget.parentElement)
+                        d3.select(this)
                             .attr("transform", `translate(${d.x},${d.y})`);
                         linkSel
                             .filter(l => (l.source.id || l.source) === d.id || (l.target.id || l.target) === d.id)
@@ -238,9 +238,13 @@ export default function GraphPanel({ repoId, repoUrl }) {
             .attr("fill", getFill).attr("stroke", getStroke).attr("stroke-width", 1.5)
             .on("mouseover", handleOver).on("mouseout", handleOut).on("click", handleClick);
 
-        // Labels
+        // Labels — show only filename, truncated to avoid overlap
         nodeSel.append("text")
-            .text(d => d.id.replace(/^(file|fn|cls)::/, ""))
+            .text(d => {
+                const s = d.id.replace(/^(file|fn|cls)::/, "");
+                const name = s.split(/[/\\]/).pop();
+                return name.length > 20 ? name.slice(0, 18) + "…" : name;
+            })
             .attr("text-anchor", "middle")
             .attr("dy",  d => nodeRadius(d.id) + 16)
             .attr("fill", d => NODE_COLORS[getNodeType(d.id)].label)
@@ -478,19 +482,6 @@ export default function GraphPanel({ repoId, repoUrl }) {
 
                     <div style={{ width: 1, height: 16, background: "var(--border-color)", margin: "0 4px" }} />
 
-                    {/* Hierarchy level slider */}
-                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text-muted)", marginRight: 8 }}>
-                        level
-                        <input type="range" min={1} max={3} step={1} value={detailLevel}
-                            onChange={e => setDetailLevel(Number(e.target.value))}
-                            style={{ width: 50, accentColor: "var(--accent-blue)", cursor: "pointer" }} />
-                        <span style={{ color: "var(--accent-blue)", fontWeight: 600, fontSize: 9 }}>
-                            {detailLevel === 1 ? "Files" : detailLevel === 2 ? "Services" : "Functions"}
-                        </span>
-                    </label>
-
-                    <div style={{ width: 1, height: 16, background: "var(--border-color)", margin: "0 4px" }} />
-
                     {/* Local only */}
                     <label style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text-muted)", cursor: "pointer" }}>
                         <input type="checkbox" checked={localOnly} onChange={e => setLocalOnly(e.target.checked)}
@@ -500,18 +491,35 @@ export default function GraphPanel({ repoId, repoUrl }) {
 
                     {/* Min degree */}
                     <label style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text-muted)" }}>
-                        min
-                        <input type="range" min={1} max={10} step={1} value={minDegree}
-                            onChange={e => setMinDegree(Number(e.target.value))}
-                            style={{ width: 40, accentColor: "var(--accent-blue)" }} />
-                        <span style={{ color: "var(--accent-blue)", minWidth: 10, fontWeight: 600, fontSize: 9 }}>{minDegree}</span>
+                        min deps
+                        <input
+                            type="number"
+                            min={0}
+                            max={50}
+                            step={1}
+                            value={minDegree}
+                            onChange={e => setMinDegree(Math.max(0, Number(e.target.value)))}
+                            style={{
+                                width: 40,
+                                background: "var(--bg-tertiary)",
+                                border: "1px solid var(--border-color)",
+                                borderRadius: 4,
+                                color: "var(--accent-blue)",
+                                fontFamily: "var(--font-mono)",
+                                fontSize: 9,
+                                fontWeight: 600,
+                                textAlign: "center",
+                                padding: "1px 4px",
+                                outline: "none",
+                            }}
+                        />
                     </label>
                 </div>
             </div>
 
-            {/* Graph canvas — white background */}
-            <div ref={containerRef} style={{ flex: 1, position: "relative", overflow: "hidden", background: "#ffffff" }}>
-                <svg ref={svgRef} style={{ width: "100%", height: "100%", display: "block", background: "#ffffff" }} />
+            {/* Graph canvas — app blue background */}
+            <div ref={containerRef} style={{ flex: 1, position: "relative", overflow: "hidden", background: "#0B1220" }}>
+                <svg ref={svgRef} style={{ width: "100%", height: "100%", display: "block", background: "#0B1220" }} />
 
                 {/* Zoom controls */}
                 <div style={{ position: "absolute", bottom: 12, right: 12, display: "flex", flexDirection: "column", gap: 3 }}>

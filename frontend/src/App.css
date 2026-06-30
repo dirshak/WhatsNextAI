@@ -255,18 +255,20 @@ body {
   gap: 10px;
 }
 
-.navbar-logo {
-  width: 30px;
-  height: 30px;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+.navbar-logo-img {
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 13px;
-  color: white;
+  object-fit: cover;
   box-shadow: 0 0 12px var(--accent-blue-glow);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
   flex-shrink: 0;
+}
+
+.navbar-logo-img:hover {
+  transform: scale(1.1) rotate(5deg);
 }
 
 .navbar-title {
@@ -325,25 +327,118 @@ body {
   animation: none;
 }
 
-/* ── Repository Card (compact workspace card) ── */
+.navbar-reconnect-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.navbar-reconnect-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+  background: rgba(37, 99, 235, 0.08);
+}
+
 .repo-card-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: 40px 24px;
+  padding: 16px 24px;
+  position: relative;
+  overflow-y: auto;
   animation: fadeIn 0.4s ease both;
+}
+
+.glow-blob-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.glow-blob {
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  animation: pulse 6s ease-in-out infinite alternate;
+}
+
+.glow-blob-blue {
+  background: var(--accent-blue);
+  top: -50px;
+  left: -50px;
+}
+
+.glow-blob-purple {
+  background: var(--accent-purple);
+  bottom: -50px;
+  right: -50px;
+  animation-delay: 3s;
+}
+
+.glow-blob-cyan {
+  background: #00E0FF;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.08;
+  animation: pulse 8s ease-in-out infinite alternate;
 }
 
 .repo-card {
   width: 100%;
-  max-width: 560px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  max-width: 580px;
+  background: rgba(22, 29, 46, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-xl);
-  padding: 32px;
-  box-shadow: var(--shadow-lg);
-  animation: slideUp 0.4s ease both;
+  padding: 28px 32px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  z-index: 2;
+  position: relative;
+  margin: auto;
+}
+
+.repo-card-logo-wrapper {
+  width: 64px;
+  height: 64px;
+  background: rgba(7, 8, 32, 0.6);
+  border: 2px solid rgba(32, 96, 256, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 24px rgba(32, 96, 256, 0.2);
+  margin: 0 auto 12px;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.repo-card-logo-wrapper:hover {
+  transform: scale(1.08) rotate(-3deg);
+  border-color: #00E0FF;
+  box-shadow: 0 0 32px rgba(0, 224, 255, 0.35);
+}
+
+.repo-card-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .repo-card-header {
@@ -834,34 +929,42 @@ body {
 /* ── Bottom Tabs ── */
 .bottom-tabs {
   display: flex;
-  align-items: stretch;
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
-  padding: 0 8px;
-  height: var(--bottomtabs-height);
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 12px;
+  height: 48px;
+  margin: 12px auto;
+  border-radius: 24px;
+  gap: 8px;
+  width: fit-content;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  z-index: 90;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
-  gap: 1px;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .bottom-tab {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 12px;
+  gap: 8px;
+  padding: 8px 16px;
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  border-top: 2px solid transparent;
-  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  color: var(--text-secondary);
   font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 550;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   position: relative;
-  height: 100%;
+  height: auto;
 }
 
 .bottom-tab:hover { color: var(--text-secondary); }
@@ -1169,6 +1272,51 @@ body {
   color: var(--text-secondary) !important;
 }
 
+/* Propose Feature Floating Action Button (FAB) */
+.feature-drawer-trigger-fab {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99;
+}
+
+.feature-drawer-trigger-btn {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px !important;
+  padding: 10px 24px !important;
+  color: white !important;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35), 0 0 0 1px rgba(124, 58, 237, 0.2);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.feature-drawer-trigger-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.5), 0 0 15px rgba(124, 58, 237, 0.4);
+}
+
+.app-footer {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  padding: 6px;
+  background: transparent;
+  width: 100%;
+  flex-shrink: 0;
+  z-index: 10;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
 /* ── Mobile Responsive ── */
 @media (max-width: 1024px) {
   :root { --sidebar-width: 280px; }
@@ -1203,9 +1351,9 @@ body {
     height: 400px !important;
   }
 
-  .bottom-tabs { padding: 0 4px; }
+  .bottom-tabs { margin: 8px auto; height: 42px; padding: 4px 8px; }
 
-  .bottom-tab { padding: 0 8px; font-size: 10px; }
+  .bottom-tab { padding: 6px 12px; font-size: 11px; }
   .bottom-tab .label { display: none; }
 }
 

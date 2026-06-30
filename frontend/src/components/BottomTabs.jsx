@@ -2,6 +2,7 @@ const tabs = [
     { id: "architecture", icon: "🏗️", label: "Architecture" },
     { id: "graph",        icon: "🔗", label: "Dep. Graph"   },
     { id: "chat",         icon: "💬", label: "Repository Chat" },
+    { id: "propose",      icon: "⚡", label: "Propose Feature" },
 ];
 
 export default function BottomTabs({ activeTab, onTabChange, repoId }) {
@@ -18,7 +19,7 @@ export default function BottomTabs({ activeTab, onTabChange, repoId }) {
                     fontFamily: "var(--font-mono)",
                     fontSize: 10,
                     color: "var(--text-muted)",
-                    borderRight: "1px solid var(--border-color)",
+                    borderRight: "1px solid rgba(255, 255, 255, 0.08)",
                     marginRight: 4,
                     whiteSpace: "nowrap",
                 }}>
