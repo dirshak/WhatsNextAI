@@ -1,7 +1,6 @@
 // src/components/RepositoryPanel.jsx
 import { useState, useEffect, useRef } from "react";
-
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+import { API } from '../config';
 
 const GITHUB_RE = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(\.git)?\/?$/;
 
@@ -162,7 +161,7 @@ export default function RepositoryPanel({ onIngested, onStatusChange, feature, s
                     <textarea
                         value={feature}
                         onChange={(e) => setFeature(e.target.value)}
-                        placeholder="(Optional) Describe the feature you want to add eventually or leave this field blank and add it after you have viewed the project's architecture..."
+                        placeholder="(Optional) Describe the feature you want to add eventually or leave this field blank and add it after you have viewed the project's architecture"
                         className="feature-textarea"
                         style={{
                             width: "100%",

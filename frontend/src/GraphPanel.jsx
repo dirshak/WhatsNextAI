@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
-
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+import { API } from "./config";
 
 const STDLIB = new Set([
   "os", "sys", "re", "json", "time", "csv", "math", "io", "abc", "copy",

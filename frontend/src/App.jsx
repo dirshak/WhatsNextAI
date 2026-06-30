@@ -4,6 +4,7 @@ import { useState } from "react";
 import Navbar from './components/Navbar';
 import Workspace from './components/Workspace';
 import BottomTabs from './components/BottomTabs';
+import { API } from './config';
 
 export default function App() {
   const [repoId, setRepoId] = useState(null);
@@ -23,7 +24,7 @@ export default function App() {
     setProposalError("");
 
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:8000/api"}/propose-feature`, {
+      const res = await fetch(`${API}/propose-feature`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repo_id: id, feature: featureText.trim() }),

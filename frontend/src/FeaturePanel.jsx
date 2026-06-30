@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
-
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+import { API } from "./config";
 
 /**
  * FeaturePanel — GraphForgeAI Feature Request Panel

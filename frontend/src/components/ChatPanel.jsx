@@ -2,8 +2,7 @@
 import ReactMarkdown from 'react-markdown';
 import { useState, useEffect, useRef } from "react";
 import MermaidBlock from './MermaidBlock';
-
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+import { API } from '../config';
 
 export default function ChatPanel({ repoId, repoUrl, theme }) {
     const [question, setQuestion] = useState("");

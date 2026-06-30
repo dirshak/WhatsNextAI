@@ -1,8 +1,7 @@
 // src/components/KnowledgeGraph.jsx - Full workspace version
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
-
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+import { API } from '../config';
 
 const TYPE = {
   file: { stroke: "#10B981", fill: "#064E3B", r: 28, label: "#10B981" },

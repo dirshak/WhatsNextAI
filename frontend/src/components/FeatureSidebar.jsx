@@ -1,7 +1,6 @@
 // src/components/FeatureSidebar.jsx
 import { useState, useRef } from "react";
-
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+import { API } from '../config';
 
 function Section({ icon, title, badge, badgeVariant = "blue", defaultOpen = true, children }) {
     const [open, setOpen] = useState(defaultOpen);
