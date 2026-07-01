@@ -229,6 +229,19 @@ async def get_architecture(repo_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/repo-map/{repo_id}")
+async def get_repo_map(repo_id: str):
+    try:
+        db = SessionLocal()
+        try:
+            result = await flow_service.get_repo_map(repo_id, db)
+        finally:
+            db.close()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Debug ─────────────────────────────────────────────────────
 
 @router.get("/debug")

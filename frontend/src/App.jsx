@@ -10,7 +10,7 @@ export default function App() {
   const [repoId, setRepoId] = useState(null);
   const [repoUrl, setRepoUrl] = useState("");
   const [repoStatus, setRepoStatus] = useState("idle"); // idle | loading | done | error
-  const [activeTab, setActiveTab] = useState("architecture");
+  const [activeTab, setActiveTab] = useState("graph");
   const [proposalResult, setProposalResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [feature, setFeature] = useState("");
@@ -58,7 +58,7 @@ export default function App() {
     setProposalStatus("idle");
     setProposalError("");
     setFeature("");
-    setActiveTab("architecture");
+    setActiveTab("graph");
   }
 
   return (

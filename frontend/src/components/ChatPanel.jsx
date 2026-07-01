@@ -4,6 +4,19 @@ import { useState, useEffect, useRef } from "react";
 import MermaidBlock from './MermaidBlock';
 import { API } from '../config';
 
+const EXAMPLE_QUESTIONS = [
+    "Explain the repository architecture.",
+    "Which files have the most dependencies?",
+    "Trace the execution flow from main.py.",
+    "Show circular dependencies.",
+    "Which modules are most tightly coupled?",
+    "Explain how the LLM pipeline works.",
+    "Which files import this module?",
+    "Find unused files.",
+    "Explain the purpose of the selected file.",
+    "Suggest refactoring opportunities.",
+];
+
 export default function ChatPanel({ repoId, repoUrl, theme }) {
     const [question, setQuestion] = useState("");
     const [messages, setMessages] = useState([]);
@@ -141,19 +154,41 @@ export default function ChatPanel({ repoId, repoUrl, theme }) {
                 padding: "12px 16px",
             }}>
                 {messages.length === 0 && (
-                    <div style={{
-                        color: "var(--text-muted)",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 12,
-                        marginTop: 20,
-                        textAlign: "center",
-                        lineHeight: 2,
-                    }}>
-                        Ask anything about this codebase ↓
-                        <br />
-                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                            Try: "Explain the architecture" or "Where is authentication handled?"
-                        </span>
+                    <div style={{ marginTop: 20, textAlign: "center" }}>
+                        <div style={{
+                            color: "var(--text-muted)",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 12,
+                            marginBottom: 14,
+                        }}>
+                            Ask anything about this codebase ↓
+                        </div>
+                        <div style={{
+                            display: "flex", flexWrap: "wrap", gap: 8,
+                            justifyContent: "center", maxWidth: 520, margin: "0 auto",
+                        }}>
+                            {EXAMPLE_QUESTIONS.map((q) => (
+                                <button
+                                    key={q}
+                                    onClick={() => setQuestion(q)}
+                                    style={{
+                                        background: "var(--bg-card)",
+                                        border: "1px solid var(--border-color)",
+                                        borderRadius: "var(--radius)",
+                                        padding: "6px 12px",
+                                        color: "var(--text-secondary)",
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: 10,
+                                        cursor: "pointer",
+                                        transition: "var(--transition)",
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent-blue)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-color)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                                >
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
                 {messages.map((msg, i) => (

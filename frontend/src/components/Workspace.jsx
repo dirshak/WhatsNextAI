@@ -1,8 +1,20 @@
 import RepositoryPanel from "./RepositoryPanel";
-import GraphPanel from "./GraphPanel";
-import DiagramPanel from "./DiagramPanel";
+import RepositoryMap from "./RepositoryMap";
 import ChatPanel from "./ChatPanel";
 import GraphDiff from "./GraphDiff";
+
+const EXAMPLE_PROPOSALS = [
+    "Add Git history visualization.",
+    "Detect architectural violations.",
+    "Generate Mermaid diagrams.",
+    "Highlight dead code.",
+    "Suggest dependency optimizations.",
+    "Visualize test coverage.",
+    "Show ownership by contributor.",
+    "Add AI-powered architecture summaries.",
+    "Detect cyclic dependencies.",
+    "Generate documentation from the graph.",
+];
 
 export default function Workspace({
     repoId,
@@ -35,21 +47,12 @@ export default function Workspace({
     const renderPanel = () => {
         switch (activeTab) {
             case "graph":
-                // NOTE: proposalResult is intentionally NOT passed — the base graph
+                // NOTE: proposalResult is intentionally NOT passed — the base map
                 // should never be coloured by proposal diffs.
                 return (
-                    <GraphPanel
+                    <RepositoryMap
                         repoId={repoId}
                         repoUrl={repoUrl}
-                    />
-                );
-            case "architecture":
-                // Architecture diagram is also unaffected by proposals
-                return (
-                    <DiagramPanel
-                        repoId={repoId}
-                        repoUrl={repoUrl}
-                        mode="architecture"
                     />
                 );
             case "chat":
@@ -98,6 +101,37 @@ export default function Workspace({
                                     </div>
                                 )}
                             </div>
+
+                            {!proposalResult && (
+                                <div className="drawer-section" style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px" }}>
+                                    <div className="col-header" style={{ marginBottom: "10px" }}>💡 Example Proposals</div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                        {EXAMPLE_PROPOSALS.map((p) => (
+                                            <button
+                                                key={p}
+                                                onClick={() => setFeature(p)}
+                                                disabled={isAnalyzing}
+                                                style={{
+                                                    textAlign: "left",
+                                                    background: "var(--bg-secondary)",
+                                                    border: "1px solid var(--border-color)",
+                                                    borderRadius: "var(--radius)",
+                                                    padding: "8px 10px",
+                                                    color: "var(--text-secondary)",
+                                                    fontSize: "11px",
+                                                    fontFamily: "var(--font-mono)",
+                                                    cursor: isAnalyzing ? "not-allowed" : "pointer",
+                                                    transition: "var(--transition)",
+                                                }}
+                                                onMouseEnter={e => { if (!isAnalyzing) { e.currentTarget.style.borderColor = "var(--accent-purple, var(--accent-blue))"; e.currentTarget.style.color = "var(--text-primary)"; } }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-color)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                                            >
+                                                {p}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {proposalResult && (
                                 <>

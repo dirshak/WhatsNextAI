@@ -1,8 +1,7 @@
 const tabs = [
-    { id: "architecture", icon: "🏗️", label: "Architecture" },
-    { id: "graph",        icon: "🔗", label: "Dep. Graph"   },
-    { id: "chat",         icon: "💬", label: "Repository Chat" },
-    { id: "propose",      icon: "⚡", label: "Propose Feature" },
+    { id: "graph",   icon: "🗺️", label: "Repository Map" },
+    { id: "chat",    icon: "💬", label: "Repository Chat" },
+    { id: "propose", icon: "⚡", label: "Propose Feature" },
 ];
 
 export default function BottomTabs({ activeTab, onTabChange, repoId }) {

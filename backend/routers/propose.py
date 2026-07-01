@@ -17,6 +17,7 @@ Pipeline:
     React Flow + Mermaid Architecture + Mermaid ER + Implementation Plan
 """
 import logging
+import os
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -79,7 +80,10 @@ def _build_graph_from_db(repo_id: str, db) -> dict:
             })
 
     for row in symbol_rows:
-        file_name = row.file_path.split("/")[-1]
+        # os.path.basename handles native separators; a plain "/"-split
+        # leaves the full absolute path intact on Windows (backslash paths),
+        # which then mismatches the bare-filename ids call_edges uses below.
+        file_name = os.path.basename(row.file_path)
         file_id = f"file::{file_name}"
         add_node(file_id, file_name, "file", file_path=row.file_path)
 
@@ -106,8 +110,8 @@ def _build_graph_from_db(repo_id: str, db) -> dict:
     """), {"repo_id": repo_id}).fetchall()
 
     for row in dep_rows:
-        src_name = row.source.split("/")[-1]
-        tgt_name = row.target.split("/")[-1]
+        src_name = os.path.basename(row.source)
+        tgt_name = os.path.basename(row.target)
         src_id = f"file::{src_name}"
         tgt_id = f"file::{tgt_name}"
         if src_id in seen_nodes and tgt_id in seen_nodes:
@@ -120,11 +124,15 @@ def _build_graph_from_db(repo_id: str, db) -> dict:
     """), {"repo_id": repo_id}).fetchall()
 
     for row in call_rows:
-        edges.append({
-            "source": row.caller_id,
-            "target": row.callee_id,
-            "relationship": "calls",
-        })
+        # Guard against dangling references the same way dep_rows does above:
+        # an edge to an id that was never added as a node makes d3.forceLink
+        # throw "node not found" client-side and abort the whole render.
+        if row.caller_id in seen_nodes and row.callee_id in seen_nodes:
+            edges.append({
+                "source": row.caller_id,
+                "target": row.callee_id,
+                "relationship": "calls",
+            })
 
     # Deduplicate edges
     seen_edge_keys: set[str] = set()

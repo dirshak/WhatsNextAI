@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from clients import groq_client
 from services.architecture.pipeline import build_architecture_mermaid
+from services.architecture.repo_map import build_repo_map
 
 
 def extract_calls_from_source(source_code: str) -> dict:
@@ -348,3 +349,26 @@ async def get_architecture(repo_id: str, db: Session) -> dict:
         "mermaid": mermaid,
         "explanation": llm.choices[0].message.content,
     }
+
+
+async def get_repo_map(repo_id: str, db: Session) -> dict:
+    symbols_rows = db.execute(text("""
+        SELECT file_path, functions, classes, imports, top_level_docstring
+        FROM file_symbols
+        WHERE repo_id = :repo_id
+    """), {"repo_id": repo_id}).fetchall()
+
+    if not symbols_rows:
+        return {"error": "No symbols found. Re-ingest the repo."}
+
+    dependency_rows = db.execute(text("""
+        SELECT source, target FROM file_dependencies
+        WHERE repo_id = :repo_id
+    """), {"repo_id": repo_id}).fetchall()
+
+    call_edge_rows = db.execute(text("""
+        SELECT caller_id, callee_id FROM call_edges
+        WHERE repo_id = :repo_id
+    """), {"repo_id": repo_id}).fetchall()
+
+    return build_repo_map(symbols_rows, dependency_rows, call_edge_rows)

@@ -23,9 +23,23 @@ def _parse_json_field(val):
     return val
 
 
+# Mermaid flowchart keywords that break parsing if used verbatim as a node
+# id (confirmed against the real parser: a file called end.py produces the
+# id "end", which collides with the keyword that closes a subgraph/flowchart
+# block and throws "Syntax error in text"). Guarded case-insensitively since
+# a file called End.py or STYLE.py would collide just as badly.
+_RESERVED_IDS = {
+    "end", "subgraph", "style", "linkstyle", "classdef", "class", "click",
+    "direction", "default", "graph", "flowchart", "acc_title", "acc_descr",
+}
+
+
 def safe_id(filename: str) -> str:
     no_ext = re.sub(r"\.[^.]+$", "", filename)
-    return re.sub(r"[^a-zA-Z0-9]", "_", no_ext) or "file"
+    candidate = re.sub(r"[^a-zA-Z0-9]", "_", no_ext) or "file"
+    if candidate.lower() in _RESERVED_IDS:
+        candidate = f"{candidate}_file"
+    return candidate
 
 
 def display_name(filename: str) -> str:
@@ -36,6 +50,37 @@ def _dir_segments(file_path: str) -> list[str]:
     normalized = file_path.replace("\\", "/")
     parts = [p for p in normalized.split("/") if p]
     return parts[:-1] if parts else []
+
+
+def strip_clone_prefix(paths: list[str]) -> dict[str, str]:
+    """Map each raw stored path to a repo-relative one by stripping the
+    longest common leading-directory prefix across the whole batch.
+
+    Ingestion clones every repo into a fresh, randomly-named temp directory
+    and stores that absolute path verbatim (e.g.
+    "C:\\Users\\...\\Temp\\tmphmfqk4qi\\cli\\main.py"), so every file for a
+    given repo necessarily shares that same prefix. Stripping it (rather than
+    pattern-matching temp-dir naming conventions) is robust to any OS/temp
+    layout and fixes directory-based grouping, which otherwise leaks the
+    random temp directory name in as a fake extra path segment.
+    """
+    if not paths:
+        return {}
+    split_paths = [p.replace("\\", "/").split("/") for p in paths]
+    min_len = min(len(p) for p in split_paths)
+    common = 0
+    for i in range(min_len):
+        segment = split_paths[0][i]
+        if all(p[i] == segment for p in split_paths):
+            common += 1
+        else:
+            break
+    common = min(common, min_len - 1)  # never strip the filename itself
+
+    return {
+        original: "/".join(segments[common:])
+        for original, segments in zip(paths, split_paths)
+    }
 
 
 def cluster_key(file_path: str) -> str:
@@ -57,6 +102,7 @@ class FileNode:
     directory: str                       # cluster key derived from file_path
     functions: list[str] = field(default_factory=list)
     classes: list[str] = field(default_factory=list)
+    is_external: bool = False            # True for unresolved-import pseudo-nodes
 
     @property
     def label(self) -> str:
@@ -93,16 +139,24 @@ class RepoGraph:
         return adj
 
 
-def build_repo_graph(symbols_rows, dependency_rows) -> RepoGraph:
+def build_repo_graph(symbols_rows, dependency_rows, include_external: bool = False) -> RepoGraph:
     """Build a RepoGraph from file_symbols + file_dependencies DB rows.
 
     One node per file present in file_symbols. Edges are file_dependencies
-    rows restricted to files that have a node (so we never point at an
-    external/unresolved import as if it were a repo file).
+    rows restricted to files that have a node — i.e. an unresolved/external
+    import target is dropped by default (correct for the Mermaid architecture
+    view, which only wants real repo files).
+
+    When include_external=True (used by the Repository Map, which wants to
+    be "complete like the Dependency Graph"), an unresolved dependency target
+    instead gets a lightweight external pseudo-node (is_external=True) rather
+    than being dropped, so those edges/files are still visible and filterable
+    as "External APIs".
     """
     nodes: dict[str, FileNode] = {}
     path_to_id: dict[str, str] = {}
     used_ids: set[str] = set()
+    clean_path = strip_clone_prefix([row.file_path for row in symbols_rows])
 
     for row in symbols_rows:
         filename = row.file_path.split("/")[-1].split("\\")[-1]
@@ -123,11 +177,12 @@ def build_repo_graph(symbols_rows, dependency_rows) -> RepoGraph:
             if isinstance(c, dict) and "name" in c
         ]
 
+        display_path = clean_path.get(row.file_path, row.file_path)
         node = FileNode(
             id=node_id,
             filename=filename,
-            file_path=row.file_path,
-            directory=cluster_key(row.file_path),
+            file_path=display_path,
+            directory=cluster_key(display_path),
             functions=fns,
             classes=cls,
         )
@@ -137,12 +192,44 @@ def build_repo_graph(symbols_rows, dependency_rows) -> RepoGraph:
         path_to_id[row.file_path] = node_id
         path_to_id.setdefault(filename, node_id)
 
+    def _external_node_id(target: str) -> str:
+        existing = path_to_id.get(target)
+        if existing:
+            return existing
+
+        display = target.split("/")[-1].split("\\")[-1] or target
+        base = safe_id(display)
+        node_id = base
+        counter = 1
+        while node_id in used_ids:
+            node_id = f"{base}_{counter}"
+            counter += 1
+        used_ids.add(node_id)
+
+        nodes[node_id] = FileNode(
+            id=node_id,
+            filename=display,
+            file_path=target,
+            directory="external",
+            is_external=True,
+        )
+        path_to_id[target] = node_id
+        return node_id
+
     edges: list[FileEdge] = []
     seen_edges: set[tuple[str, str]] = set()
     for row in dependency_rows:
         src_id = path_to_id.get(row.source) or path_to_id.get(row.source.split("/")[-1])
+        if not src_id:
+            continue
+
         tgt_id = path_to_id.get(row.target) or path_to_id.get(row.target.split("/")[-1])
-        if not src_id or not tgt_id or src_id == tgt_id:
+        if not tgt_id:
+            if not include_external:
+                continue
+            tgt_id = _external_node_id(row.target)
+
+        if src_id == tgt_id:
             continue
         key = (src_id, tgt_id)
         if key in seen_edges:

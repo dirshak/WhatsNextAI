@@ -389,7 +389,10 @@ def build_and_store_graph(file_contents: dict, repo_id: str, db: Session, file_l
 def store_call_edges(file_contents: dict, all_symbols: list[dict], repo_id: str, db: Session):
     func_id_map: dict[tuple[str, str], str] = {}
     for sym in all_symbols:
-        file_name = sym["file_path"].split("/")[-1]
+        # os.path.basename handles native separators; a plain "/"-split
+        # leaves the full absolute path intact on Windows (backslash paths),
+        # which silently breaks every caller/callee lookup below.
+        file_name = os.path.basename(sym["file_path"])
         for fn in sym.get("functions", []):
             func_id_map[(file_name, fn["name"])] = f"fn::{file_name}::{fn['name']}"
 
@@ -404,7 +407,7 @@ def store_call_edges(file_contents: dict, all_symbols: list[dict], repo_id: str,
             except SyntaxError:
                 continue
 
-            caller_file = full_path.split("/")[-1]
+            caller_file = os.path.basename(full_path)
             for node in ast.walk(tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     caller_id = func_id_map.get((caller_file, node.name))
