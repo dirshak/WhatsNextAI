@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from clients import groq_client
+from services.architecture.pipeline import build_architecture_mermaid
 
 
 def extract_calls_from_source(source_code: str) -> dict:
@@ -56,75 +57,6 @@ def steps_to_mermaid_flowchart(steps: list[dict]) -> str:
                 seen_edges.add(edge)
                 lines.append(edge)
 
-    return "\n".join(lines)
-
-
-def build_architecture_mermaid(symbols_rows, dependency_rows, max_nodes: int = 60) -> str:
-    import json as _json
-
-    def _parse_json(val):
-        if not val:
-            return []
-        if isinstance(val, str):
-            try:
-                return _json.loads(val)
-            except Exception:
-                return []
-        return val
-
-    # Count dependency degree per file to pick the most connected ones
-    degree: dict[str, int] = {}
-    for row in dependency_rows:
-        for path in (row.source, row.target):
-            name = path.split("/")[-1]
-            degree[name] = degree.get(name, 0) + 1
-
-    # Files present in symbols table
-    symbol_files = {row.file_path.split("/")[-1]: row for row in symbols_rows}
-
-    # Select top files by degree, fall back to any symbol file to fill up to max_nodes
-    top_by_degree = sorted(symbol_files, key=lambda f: -degree.get(f, 0))
-    selected = set(top_by_degree[:max_nodes])
-
-    def safe_id(filename: str) -> str:
-        no_ext = re.sub(r"\.[^.]+$", "", filename)
-        return re.sub(r"[^a-zA-Z0-9]", "_", no_ext)
-
-    def display_name(filename: str) -> str:
-        return re.sub(r"\.[^.]+$", "", filename)
-
-    lines = ["graph LR"]
-    seen_edges: set[str] = set()
-    id_map: dict[str, str] = {}  # filename → mermaid node id
-
-    for fname in selected:
-        row = symbol_files[fname]
-        sid = safe_id(fname)
-        # Ensure uniqueness if two files collide after sanitisation
-        base = sid
-        counter = 1
-        while sid in id_map.values():
-            sid = f"{base}_{counter}"
-            counter += 1
-        id_map[fname] = sid
-
-        fns = [f["name"] for f in _parse_json(row.functions)[:3] if isinstance(f, dict) and "name" in f]
-        cls = [c["name"] for c in _parse_json(row.classes)[:2] if isinstance(c, dict) and "name" in c]
-        items = fns + cls
-        dname = display_name(fname)
-        label = "\\n".join(items) if items else dname
-        lines.append(f'    {sid}["{dname}\\n─────\\n{label}"]')
-
-    for row in dependency_rows:
-        src_name = row.source.split("/")[-1]
-        tgt_name = row.target.split("/")[-1]
-        if src_name in id_map and tgt_name in id_map and src_name != tgt_name:
-            edge = f"    {id_map[src_name]} --> {id_map[tgt_name]}"
-            if edge not in seen_edges:
-                seen_edges.add(edge)
-                lines.append(edge)
-
-    lines.append("    classDef default fill:#111118,stroke:#7fff6e,color:#e8e8f0,font-family:monospace")
     return "\n".join(lines)
 
 
